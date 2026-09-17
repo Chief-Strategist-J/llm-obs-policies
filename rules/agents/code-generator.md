@@ -255,7 +255,7 @@ workers:
 |---|---|---|
 | ALWAYS | `policies/rules/critical.rule.md` | Every task |
 | ALWAYS | `logs/change.log` (last 50 lines) | Every task |
-| Package work | `policies/rules/folderStructure/package-structure.md` | New packages |
+| Package work | `policies/rules/folderStructure/api-structure.md` | New packages |
 | Feature work | `policies/rules/folderStructure/feature-anatomy.md` | New features |
 | API work | `policies/rules/folderStructure/api-structure.md` | New endpoints |
 | Worker work | `policies/rules/worker/core-rules.md` | New workers |

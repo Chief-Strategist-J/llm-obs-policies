@@ -48,7 +48,7 @@ Every review MUST check all of the following:
 
 ### 6. Folder Structure
 - Every new empty folder has a `.gitkeep` file
-- Package layout matches `package-structure.md` exactly
+- Package layout matches `api-structure.md` exactly
 - Feature layout matches `feature-anatomy.md` exactly
 
 ### 7. Code Quality
@@ -110,7 +110,7 @@ Short paragraph with overall assessment.
 | Policy File | Coverage |
 |---|---|
 | `policies/rules/critical.rule.md` | Core non-negotiables |
-| `policies/rules/folderStructure/package-structure.md` | Package layout |
+| `policies/rules/folderStructure/api-structure.md` | Package layout |
 | `policies/rules/folderStructure/feature-anatomy.md` | Feature slice layout |
 | `policies/rules/folderStructure/api-structure.md` | Contract-first, API structure |
 | `policies/rules/folderStructure/feature-dependency-rules.md` | Cross-feature dependency rules |

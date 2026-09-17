@@ -49,7 +49,7 @@ policies/rules/
 │   ├── feature-registry.md
 │   ├── models-structure.md
 │   ├── non-negotiables-for-feature-lifecycle.md
-│   └── package-structure.md
+│   └── api-structure.md
 ├── git/
 │   ├── commit-message-git.md
 │   └── git-branch-naming-rules.md
@@ -114,7 +114,7 @@ For every plan or implementation, validate ALL of the following:
 
 ### F. Folder & File Structure
 - [ ] Every new empty directory has `.gitkeep`
-- [ ] Package layout matches `package-structure.md`
+- [ ] Package layout matches `api-structure.md`
 - [ ] Feature layout matches `feature-anatomy.md`
 - [ ] No ad-hoc directories outside the defined structure
 
@@ -203,11 +203,11 @@ In both cases: read every policy file, check every category, output the complian
 
 | # | Rule | Source Policy |
 |---|---|---|
-| 1 | No cross-package source imports | `package-structure.md` |
+| 1 | No cross-package source imports | `api-structure.md` |
 | 2 | No IO inside Temporal workflow definitions | `temporal-workflow-rules.md` |
 | 3 | `worker-registry.yaml` not updated for new worker | `core-rules.md` |
 | 4 | Contract file missing when implementation exists | `api-structure.md` |
 | 5 | Secrets or API keys in committed files | `commit-message-git.md` |
 | 6 | `logs/change.log` not updated after changes | `critical.rule.md` |
 | 7 | Activities not idempotent | `temporal-workflow-rules.md` |
-| 8 | Shared database between packages | `package-structure.md` |
+| 8 | Shared database between packages | `api-structure.md` |
