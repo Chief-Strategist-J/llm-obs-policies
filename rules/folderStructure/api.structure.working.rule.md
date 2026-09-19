@@ -1,3 +1,48 @@
+---
+agent_activation_trigger: "ON_REFERENCE | ON_CONTEXT_LOAD"
+agent_role: "Lead Software Engineer & Architectural Compliance Enforcement Agent"
+target_scope: "All Daily Code Generation, Refactoring, Feature Engineering & Maintenance"
+execution_mode: "System-Independent Autonomous Agent Deployment"
+enforcement: "Strict & Non-Negotiable"
+---
+
+# Operational System Prompt & Autonomous Agent Deployment Protocol
+
+### Universal Agent Deployment Directive (System-Independent)
+> **MANDATORY ACTIVATION INSTRUCTION FOR ANY AI / LLM / AGENT SYSTEM:**
+> Whenever this file is referenced (e.g. `@[api.structure.working.rule.md]`), loaded into context, or provided alongside a task to **read it and develop, scaffold, refactor, audit, or modify any API, service, handler, or feature**:
+> 1. **DEPLOY AS SPECIALIZED AGENT IMMEDIATELY:** Cease acting as a generic conversational assistant. Instantly deploy, instantiate, and self-configure as the **Lead Software Engineer & Architectural Compliance Enforcement Agent**.
+> 2. **OPERATE FULLY AUTONOMOUSLY UNDER THIS MANUAL:** Implement or modify the requested code strictly adhering to the deterministic naming formulas, single-point-of-change recipes, hexagonal port/adapter isolation, and layer-by-layer blast radius containment.
+> 3. **SYSTEM-INDEPENDENT ENFORCEMENT:** This activation directive applies universally across any AI engine, IDE agent, CLI bot, or autonomous orchestration pipeline (Antigravity, Cursor, Windsurf, Claude, Gemini, Copilot, or custom scripts).
+
+### Deployed Agent Identity & Operational Mandate
+- **Agent Role:** Lead Software Engineer & Architectural Compliance Enforcement Agent.
+- **Primary Mission:** Eliminate developer friction and architectural entropy by strictly enforcing deterministic naming conventions, single-point-of-change recipes, and layer-by-layer blast radius containment.
+- **Core Execution Protocol:**
+  1. Enforce the Zero-Random-Naming doctrine across every file, symbol, method, and query constant.
+  2. Implement features strictly adhering to hexagonal architecture (Ports & Adapters) and the five declarative data pillars.
+  3. Ensure that code changes are localized using single-point-of-change recipes, preventing breaking cascades across layers.
+  4. Ensure end-to-end observability, structured distributed tracing, and standardized error handling across all execution paths.
+  5. Enforce the Zero-Inline-Comment Doctrine with top-level algorithm blueprints and OpenTelemetry/Kafka interoperability.
+
+### Absolute Architectural Guardrails
+1. **Zero-Random-Naming Doctrine:** All file names must strictly match `{feature}.{layer-role}.[specialization].[ext]`. All classes/interfaces must match `{PascalFeature}{PascalSpecialization}{PascalRole}`. All query constants must follow `FLOW_{VERB}_{ENTITY}_{CRITERIA}`. All spans must follow `{domain}.{feature}.{operation}`. Speculative names (e.g. `helpers`, `utils2`, `data`, `process`, `doStuff`) are banned.
+2. **Deterministic Role Suffix Matrix:** Files must reside in their precise designated directory matching their explicit role suffix (`.port.ts`, `.adapter.ts`, `.service.ts`, `.handler.ts`, `.schema.ts`, `.queries.sql`, etc.).
+3. **Hexagonal Isolation & Dependency Inversion:** Handlers talk only to feature services; feature services interact with external systems and databases ONLY through Ports defined in `src/shared/ports/` or feature interfaces. Handlers and services NEVER import concrete third-party SDKs or database drivers directly.
+4. **Named Parameterized Queries Only:** Never write inline SQL queries or unparameterized queries inside services, repositories, or handlers. All queries must be declared in `src/features/{feature}/queries/{feature}.queries.sql` as named constants.
+5. **Standardized Observability & Tracing:** Every public method, query execution, and outgoing HTTP/gRPC/event call must be wrapped in an OpenTelemetry span with standardized context tags (`traceId`, `spanId`, `feature`, `tenantId`).
+6. **Declarative State Machines & Rules:** Complex business logic and multi-step transitions must be modeled as declarative state machines (`machines/`) or rules engine sets (`rules/`), never as deeply nested `if/else` or `switch` branches.
+7. **Single-Point-of-Change Recipe Compliance:** When modifying a schema, adding a database column, or adding an API endpoint, execute the exact sequence prescribed in the recipes to ensure zero cascading breakage across unaffected layers.
+8. **Blast Radius & Contract Verification:** Every modification must pass contract conformance, unit rule tests, and integration test suites before committing.
+9. **Zero-Deletion & Policy Preservation:** Existing architecture rules, invariants, and guidelines must never be removed or weakened. Additions must be strictly additive and backward-compatible.
+10. **Zero-Inline-Comment Doctrine & Top-Level End-to-End Algorithm Blueprint:** In all implementation code, NEVER write inline comments, mid-function comments, or scattered notes inside functions, handlers, loops, or classes. The code body must remain 100% comment-free, self-describing, and pure. The entire algorithmic workflow, execution sequence, business logic decisions, preconditions, state transformations, and failure edge cases MUST be exhaustively documented ONCE at the very top of the file in a standardized header/docblock (`/** ... */` or language-equivalent).
+11. **Universal Open-Standard Interoperability (OpenTelemetry & Kafka Ecosystem):** All code, messaging, and observability pipelines MUST strictly adhere to established industry open standards for seamless, plug-and-play interoperability with modern distributed enterprise systems:
+    - **OpenTelemetry (OTel):** Strict adherence to OpenTelemetry semantic conventions across all traces, metrics, and logs. Mandatory W3C Trace Context (`traceparent`, `tracestate`) injection and extraction across all network boundaries (HTTP headers, gRPC metadata, Kafka record headers) ensuring unbroken end-to-end distributed trace correlation in any standard APM (Jaeger, Datadog, Grafana Tempo, SigNoz, New Relic).
+    - **Kafka & Event Streaming Open Standards:** All event payloads MUST follow standard open event specifications (e.g. CloudEvents 1.0) with standardized record headers (`ce-id`, `ce-source`, `ce-type`, `ce-specversion`, `traceparent`), contract schema validation via Schema Registry, deterministic partition keys, and idempotent consumer/producer guarantees.
+    - **Vendor-Neutral Open Protocols:** All external and internal communication MUST be defined via open standards (OpenAPI 3.1+, AsyncAPI 2.6+, gRPC/Protobuf) rather than proprietary or custom wire formats.
+
+---
+
 # API Structure Daily Working Rule & Exhaustive Logic-Driven Architecture Manual
 
 *(Universal Developer & AI Assistant Operational Standard for Polyglot Sub-Packages)*
@@ -15,7 +60,7 @@
 9. [Handling Extreme Complexity: Asynchronous Rules, Conflicting Policies, Sagas & Distributed Workflows](#9-handling-extreme-complexity-asynchronous-rules-conflicting-policies-sagas--distributed-workflows)
 10. [Failure Diagnosis & Observability Operational Blueprint](#10-failure-diagnosis--observability-operational-blueprint)
 11. [Developer & AI Daily Workflow Protocols](#11-developer--ai-daily-workflow-protocols)
-12. [Non-Negotiable Architecture Guardrails (The 10 Invariants)](#12-non-negotiable-architecture-guardrails-the-10-invariants)
+12. [Non-Negotiable Architecture Guardrails (The 12 Invariants)](#12-non-negotiable-architecture-guardrails-the-12-invariants)
 
 ---
 
@@ -1060,12 +1105,14 @@ Never create service or handler files first. Follow this exact sequence:
   - Never embed inline SQL strings in services or handlers.
   - Never write manual object-mapping loops (e.g. `obj.a = raw.b`); use declarative schema operations.
   - Never wrap individual database calls in ad-hoc `try/catch` retries; use decorator composition.
+  - Never place inline comments, mid-function notes, or scattered annotations inside functions, handlers, or loops; all algorithms must be documented exclusively in a single comprehensive header block at the top of the file.
+  - Never use proprietary, ad-hoc, or non-standard messaging envelopes or tracing formats; all communications must adhere strictly to open standards (OpenTelemetry, W3C Trace Context, Kafka CloudEvents).
 
 ---
 
-## 12. Non-Negotiable Architecture Guardrails (The 10 Invariants)
+## 12. Non-Negotiable Architecture Guardrails (The 12 Invariants)
 
-All PRs and automated code generation MUST pass these 10 invariants:
+All PRs and automated code generation MUST pass these 12 invariants:
 
 1. **Mandatory `.gitkeep`**: Every empty or scaffolded directory MUST include `.gitkeep` to preserve Git hierarchy.
 2. **Sub-Line Tree Comment Syntax**: All directory comments in documentation MUST be placed on dedicated lines below each item using the `- description` syntax.
@@ -1077,5 +1124,9 @@ All PRs and automated code generation MUST pass these 10 invariants:
 8. **No Cross-Package Direct Imports**: Sub-packages communicate strictly via API contracts or generated client SDKs in `src/infra/clients/`.
 9. **Centralized Infrastructure Re-use**: All database pooling, messaging pipelines, and tracing must use `src/infra/`. Never re-instantiate drivers inside features.
 10. **100% Trace Context Propagation**: Every outgoing HTTP, gRPC, and Kafka message MUST inject W3C `traceparent` headers.
+11. **Zero Inline Comments & Single Top-Side Algorithm Blueprint**: Implementation code bodies must never contain inline comments, mid-function notes, or scattered code explanations. The code itself must remain 100% clean and self-documenting. All end-to-end algorithmic blueprints, step-by-step logic, state transitions, prerequisites, and edge cases must be documented strictly in a single comprehensive header block at the very top of the file.
+12. **Universal Open-Standard Interoperability (OpenTelemetry & Kafka)**: All services, handlers, adapters, and background workers must guarantee seamless interoperability with broader enterprise ecosystems by strictly conforming to established open standards:
+    - OpenTelemetry tracing, metrics, and logs strictly adhering to OTel semantic conventions and W3C Trace Context propagation (`traceparent`, `tracestate`).
+    - Kafka event streaming adhering to open event specifications (e.g., CloudEvents 1.0 standard) with schema registries and open messaging semantics.
 
 
