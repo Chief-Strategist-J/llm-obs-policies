@@ -7,7 +7,7 @@
 | **Surface** | Response JSON Envelope Root Field |
 | **Requirement Level** | **MANDATORY on Success; FORBIDDEN on Failure** |
 | **Criticality Tier** | **CRITICAL (P0)** |
-| **Standard / Reference** | Resource Payload Object or Array |
+| **Standard / Reference** | RFC 9110 HTTP Semantics / JSON Schema 2020-12 (`oneOf` — object or array) |
 | **Schema Type** | `object | array` |
 
 ---
@@ -25,7 +25,6 @@ in: body
 required: true
 schema:
   type: object | array
-  pattern: "N/A"
 ```
 
 ---
@@ -72,6 +71,6 @@ is_success ? (payload != null ? payload : {}) : null
 
 ### 8. Protocol Wire Example
 
-```http
+```json
 "data": { "orderId": "018f6e2c-9999", "status": "CONFIRMED" }
 ```

@@ -21,11 +21,10 @@ Discloses data staleness guarantees when reads are served from read-replicas, se
 
 ```yaml
 name: meta.staleness
-in: meta
+in: body  # JSON body field — not a header parameter
 required: true
 schema:
   type: object
-  pattern: "N/A"
 ```
 
 ---
@@ -70,6 +69,6 @@ consistency_level == "eventual" ? {"maxLagMs": max_lag_ms} : null
 
 ### 8. Protocol Wire Example
 
-```http
+```json
 "staleness": { "maxLagMs": 150 }
 ```

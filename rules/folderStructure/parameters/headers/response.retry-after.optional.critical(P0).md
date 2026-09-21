@@ -25,7 +25,7 @@ in: header
 required: true
 schema:
   type: integer
-  pattern: "^[0-9]+$"
+  minimum: 0
 ```
 
 ---

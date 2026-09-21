@@ -7,7 +7,7 @@
 | **Surface** | Response JSON Metadata Field |
 | **Requirement Level** | **MANDATORY when data is a Collection** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | Pagination Metadata Object |
+| **Standard / Reference** | IETF RFC 5988 Web Linking / cursor-based paging (RFC draft-ietf-httpapi-rfc5988bis) |
 | **Schema Type** | `object` |
 
 ---
@@ -21,11 +21,10 @@ Complete navigational metadata for paginated collection responses. Supports offs
 
 ```yaml
 name: meta.pagination
-in: meta
+in: body  # JSON body field — not a header parameter
 required: true
 schema:
   type: object
-  pattern: "N/A"
 ```
 
 ---
@@ -70,6 +69,6 @@ is_collection ? {"page": page, "pageSize": page_size, "totalItems": total_items,
 
 ### 8. Protocol Wire Example
 
-```http
+```json
 "pagination": { "page": 1, "pageSize": 50, "totalItems": 142, "totalPages": 3, "hasNextPage": true, "hasPreviousPage": false }
 ```

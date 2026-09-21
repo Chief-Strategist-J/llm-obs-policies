@@ -7,7 +7,7 @@
 | **Surface** | Response JSON Metadata Field |
 | **Requirement Level** | **MANDATORY on Async 202 Accepted Operations** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | Asynchronous Operation Job Identifier |
+| **Standard / Reference** | RFC 9110 §15.3.3 (202 Accepted) / OpenAPI 3.1 `operationId` / Async Job Pattern |
 | **Schema Type** | `string` |
 
 ---
@@ -21,7 +21,7 @@ Identifies an asynchronous background job triggered by a 202 Accepted response. 
 
 ```yaml
 name: meta.operationId
-in: meta
+in: body  # JSON body field — not a header parameter
 required: true
 schema:
   type: string
@@ -70,6 +70,6 @@ status_code == 202 && operation_id != null ? operation_id : null
 
 ### 8. Protocol Wire Example
 
-```http
+```json
 "operationId": "op-99281a7b-3c4d"
 ```

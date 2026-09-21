@@ -21,11 +21,10 @@ Provides self-describing REST hypermedia controls (self, next, prev, help, docum
 
 ```yaml
 name: meta.links
-in: meta
+in: body  # JSON body field — not a header parameter
 required: false
 schema:
   type: object
-  pattern: "N/A"
 ```
 
 ---
@@ -69,6 +68,6 @@ links = "{" link-entry *( "," link-entry ) "}"
 
 ### 8. Protocol Wire Example
 
-```http
+```json
 "links": { "self": "https://api.example.com/v2/orders/018f6e2c", "help": "https://api.example.com/docs/errors/VALIDATION_FAILED" }
 ```

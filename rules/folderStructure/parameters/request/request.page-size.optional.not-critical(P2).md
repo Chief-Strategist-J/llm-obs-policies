@@ -25,7 +25,7 @@ in: query
 required: false
 schema:
   type: integer
-  pattern: "^([1-9][0-9]{0,2})$"
+  minimum: 0
 ```
 
 ---

@@ -21,11 +21,10 @@ Notifies caller that one or more attributes returned in the data payload are dep
 
 ```yaml
 name: meta.deprecatedFields
-in: meta
+in: body  # JSON body field — not a header parameter
 required: true
 schema:
   type: array
-  pattern: "N/A"
 ```
 
 ---
@@ -70,6 +69,6 @@ payload_keys.filter(k, k in deprecated_keys_registry).size() > 0 ? payload_keys.
 
 ### 8. Protocol Wire Example
 
-```http
+```json
 "deprecatedFields": [ "legacyCustomerId", "oldNotes" ]
 ```

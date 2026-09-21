@@ -21,11 +21,10 @@ Enumerates all currently active API contract versions when a caller requests an 
 
 ```yaml
 name: meta.supportedVersions
-in: meta
+in: body  # JSON body field — not a header parameter
 required: true
 schema:
   type: array
-  pattern: "N/A"
 ```
 
 ---
@@ -69,6 +68,6 @@ error_code == "UNSUPPORTED_API_VERSION" ? active_supported_versions : null
 
 ### 8. Protocol Wire Example
 
-```http
+```json
 "supportedVersions": [ "2024-11-01", "2025-06-01" ]
 ```
