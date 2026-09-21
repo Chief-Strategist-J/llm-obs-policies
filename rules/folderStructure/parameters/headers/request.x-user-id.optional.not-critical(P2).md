@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP Transport Request Header |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | End-User UUID / Subject Identifier |
+| **Standard / Reference** | RFC 6749 §4 OAuth Resource Owner / OpenID Connect Core sub Claim |
 | **Schema Type** | `string` |
 
 ---

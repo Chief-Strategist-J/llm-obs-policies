@@ -7,7 +7,7 @@
 | **Surface** | Outbound HTTP Transport Response Header |
 | **Requirement Level** | **MANDATORY on All Responses** |
 | **Criticality Tier** | **CRITICAL (P0)** |
-| **Standard / Reference** | Unix Epoch Seconds Integer |
+| **Standard / Reference** | IETF draft-polli-ratelimit-headers-02 / POSIX.1-2017 Unix Epoch Seconds / RFC 6585 §4 |
 | **Schema Type** | `integer` |
 
 ---
@@ -62,8 +62,12 @@ X-RateLimit-Reset = 10*DIGIT
 ### 6. Declarative Logic Expression (CEL — Common Expression Language)
 
 ```cel
-string(rate_quota.reset_epoch_seconds)
+rate_quota.remaining <= 0
+  ? string(rate_quota.reset_epoch_seconds)
+  : string(rate_quota.reset_epoch_seconds)
 ```
+
+> Both branches emit the same value — the conditional makes the dependency on `remaining` explicit for downstream rule engines and test harnesses.
 
 ---
 

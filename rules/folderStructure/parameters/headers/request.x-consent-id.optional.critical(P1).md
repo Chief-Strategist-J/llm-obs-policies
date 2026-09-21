@@ -5,7 +5,7 @@
 | **Identifier** | `x-consent-id` |
 | **Category** | `headers` |
 | **Surface** | Inbound HTTP Transport Request Header |
-| **Requirement Level** | **Optional / MANDATORY for Regulated PII Processing** |
+| **Requirement Level** | **Optional (Conditionally Mandatory for Regulated PII Processing)** |
 | **Criticality Tier** | **CRITICAL (P1)** |
 | **Standard / Reference** | RFC 4122 UUIDv7 Consent Ledger Reference |
 | **Schema Type** | `string` |
@@ -22,7 +22,7 @@ Certifies that user explicit consent has been captured and recorded in the conse
 ```yaml
 name: x-consent-id
 in: header
-required: true
+required: false
 schema:
   type: string
   pattern: "^[a-zA-Z0-9_-]{16,64}$"

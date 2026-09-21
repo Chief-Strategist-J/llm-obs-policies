@@ -7,7 +7,7 @@
 | **Surface** | Response JSON Metadata Field |
 | **Requirement Level** | **MANDATORY on Eventual Consistency Reads** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | Staleness Object (maxLagMs) |
+| **Standard / Reference** | RFC 9111 §5.2 Cache-Control (stale-while-revalidate) / IETF RFC 7234 Age Header / Eventual Consistency (CAP Theorem) |
 | **Schema Type** | `object` |
 
 ---

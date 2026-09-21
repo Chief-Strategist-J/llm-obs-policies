@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP URL Query Parameter |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Structured Filter Expressions / RHS Notation (e.g. filter[status]=active) |
+| **Standard / Reference** | OASIS OData v4 Filter Syntax / JSON:API v1.1 Sparse Fieldsets / IETF RFC 3986 URI Query Component / RHS Notation |
 | **Schema Type** | `string` |
 
 ---

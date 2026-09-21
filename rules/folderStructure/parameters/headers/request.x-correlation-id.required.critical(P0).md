@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP Transport Request Header |
 | **Requirement Level** | **MANDATORY** |
 | **Criticality Tier** | **CRITICAL (P0)** |
-| **Standard / Reference** | RFC 4122 UUIDv7 / corr-{unix_ms}-{random_hex} |
+| **Standard / Reference** | RFC 4122 UUIDv4 / UUIDv7 (IETF draft-peabody-dispatch-new-uuid-format) / Distributed Tracing Correlation Pattern |
 | **Schema Type** | `string` |
 
 ---

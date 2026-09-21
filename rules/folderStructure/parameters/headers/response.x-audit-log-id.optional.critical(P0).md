@@ -5,7 +5,7 @@
 | **Identifier** | `x-audit-log-id` |
 | **Category** | `headers` |
 | **Surface** | Outbound HTTP Transport Response Header |
-| **Requirement Level** | **MANDATORY on Audited Mutations & Security Failures** |
+| **Requirement Level** | **Optional (Conditionally Mandatory on Audited Mutations & Security Failures)** |
 | **Criticality Tier** | **CRITICAL (P0)** |
 | **Standard / Reference** | NIST SP 800-92 Audit Log Guidelines / ISO/IEC 27001:2022 A.8.15 / RFC 9110 Custom Headers |
 | **Schema Type** | `string` |

@@ -7,7 +7,7 @@
 | **Surface** | Outbound HTTP Transport Response Header |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | Causation Identifier |
+| **Standard / Reference** | Event Sourcing Causation Pattern / IETF RFC 4122 UUID / W3C Trace Context §3.3 |
 | **Schema Type** | `string` |
 
 ---

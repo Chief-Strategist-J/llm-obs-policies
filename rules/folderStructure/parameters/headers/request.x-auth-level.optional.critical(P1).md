@@ -5,9 +5,9 @@
 | **Identifier** | `x-auth-level` |
 | **Category** | `headers` |
 | **Surface** | Inbound HTTP Transport Request Header |
-| **Requirement Level** | **Optional / MANDATORY for High-Risk Routes** |
+| **Requirement Level** | **Optional (Conditionally Mandatory for High-Risk Routes)** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | Authentication Assurance Level ('password' | 'mfa' | 'hardware_key') |
+| **Standard / Reference** | NIST SP 800-63B Authentication Assurance Levels / OpenID Connect ACR Values (IETF RFC 6711) | 'mfa' | 'hardware_key') |
 | **Schema Type** | `string` |
 
 ---
@@ -22,7 +22,7 @@ Communicates the verified authentication assurance level of the caller. High-ris
 ```yaml
 name: x-auth-level
 in: header
-required: true
+required: false
 schema:
   type: string
   pattern: "^(password|mfa|hardware_key)$"

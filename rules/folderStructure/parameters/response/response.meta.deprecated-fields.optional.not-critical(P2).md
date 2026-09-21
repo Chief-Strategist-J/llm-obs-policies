@@ -7,7 +7,7 @@
 | **Surface** | Response JSON Metadata Field |
 | **Requirement Level** | **MANDATORY when Response Contains Deprecated Attributes** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Array of Field Names (Strings) |
+| **Standard / Reference** | RFC 8594 Sunset Header / IETF Deprecation Header draft-ietf-httpapi-deprecation-header / OpenAPI Deprecated Flag |
 | **Schema Type** | `array` |
 
 ---

@@ -7,7 +7,7 @@
 | **Surface** | Outbound HTTP Transport Response Header |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Cloud Region Identifier (e.g. us-east-1, eu-west-1) |
+| **Standard / Reference** | ISO 3166-1 / Cloud Provider Region Conventions (AWS, GCP, Azure) / RFC 9110 §10.1 Custom Headers |
 | **Schema Type** | `string` |
 
 ---

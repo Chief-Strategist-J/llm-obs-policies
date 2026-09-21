@@ -5,7 +5,7 @@
 | **Identifier** | `ETag` |
 | **Category** | `headers` |
 | **Surface** | Outbound HTTP Transport Response Header |
-| **Requirement Level** | **MANDATORY on Mutating & Read Responses for Versioned Entities** |
+| **Requirement Level** | **Optional (Conditionally Mandatory for Versioned Entities)** |
 | **Criticality Tier** | **CRITICAL (P0)** |
 | **Standard / Reference** | RFC 9110 Strong Entity Tag |
 | **Schema Type** | `string` |
@@ -22,7 +22,7 @@ Entity tag representing the specific version of the resource representation. Use
 ```yaml
 name: ETag
 in: header
-required: true
+required: false
 schema:
   type: string
   pattern: "^"[a-zA-Z0-9_-]+"$"

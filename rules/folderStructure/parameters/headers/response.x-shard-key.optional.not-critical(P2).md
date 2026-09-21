@@ -7,7 +7,7 @@
 | **Surface** | Outbound HTTP Transport Response Header |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Database Shard Identifier String |
+| **Standard / Reference** | Consistent Hashing (Karger et al. 1997) / RFC 9110 §10.1 Custom Headers / Database Sharding Architecture |
 | **Schema Type** | `string` |
 
 ---

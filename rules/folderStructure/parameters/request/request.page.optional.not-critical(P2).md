@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP URL Query Parameter |
 | **Requirement Level** | **Optional (Default: 1)** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Positive Integer (1-indexed) |
+| **Standard / Reference** | RFC 5988 Web Linking (rel=next) / JSON:API v1.1 Offset Pagination / IETF draft-ietf-httpapi-rfc5988bis |
 | **Schema Type** | `integer` |
 
 ---

@@ -7,7 +7,7 @@
 | **Surface** | Outbound HTTP Transport Response Header |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Boolean String ('true' | 'false') |
+| **Standard / Reference** | RFC 9111 HTTP Caching / Surrogate-Control Header / CDN Cache Status Convention | 'false') |
 | **Schema Type** | `string` |
 
 ---

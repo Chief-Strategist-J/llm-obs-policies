@@ -7,7 +7,7 @@
 | **Surface** | Response JSON Metadata Field |
 | **Requirement Level** | **MANDATORY on UNSUPPORTED_API_VERSION Errors** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | Array of Supported Version Strings |
+| **Standard / Reference** | CalVer (Calendar Versioning) / Semantic Versioning 2.0.0 / RFC 9110 §10.1 Custom Headers / API Versioning Best Practice |
 | **Schema Type** | `array` |
 
 ---

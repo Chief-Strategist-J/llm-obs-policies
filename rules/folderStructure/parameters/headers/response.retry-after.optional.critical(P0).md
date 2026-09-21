@@ -5,7 +5,7 @@
 | **Identifier** | `Retry-After` |
 | **Category** | `headers` |
 | **Surface** | Outbound HTTP Transport Response Header |
-| **Requirement Level** | **MANDATORY on 429 Too Many Requests and 503 Service Unavailable** |
+| **Requirement Level** | **Optional (Conditionally Mandatory on HTTP 429 and 503)** |
 | **Criticality Tier** | **CRITICAL (P0)** |
 | **Standard / Reference** | RFC 9110 Seconds Integer or HTTP-Date |
 | **Schema Type** | `integer` |
@@ -22,7 +22,7 @@ Instructs client exactly how many seconds it must wait before retrying the faile
 ```yaml
 name: Retry-After
 in: header
-required: true
+required: false
 schema:
   type: integer
   minimum: 0

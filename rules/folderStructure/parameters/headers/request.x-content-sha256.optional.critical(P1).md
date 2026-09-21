@@ -5,9 +5,9 @@
 | **Identifier** | `x-content-sha256` |
 | **Category** | `headers` |
 | **Surface** | Inbound HTTP Transport Request Header |
-| **Requirement Level** | **Optional / MANDATORY for High-Value Mutations** |
+| **Requirement Level** | **Optional (Conditionally Mandatory for High-Value Mutations)** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | Hexadecimal SHA-256 Digest of Raw Request Body |
+| **Standard / Reference** | FIPS PUB 180-4 SHA-256 / AWS Signature Version 4 / IETF draft-cavage-http-signatures |
 | **Schema Type** | `string` |
 
 ---
@@ -22,7 +22,7 @@ Guarantees message integrity across intermediate transport layers. The server co
 ```yaml
 name: x-content-sha256
 in: header
-required: true
+required: false
 schema:
   type: string
   pattern: "^[0-9a-fA-F]{64}$"

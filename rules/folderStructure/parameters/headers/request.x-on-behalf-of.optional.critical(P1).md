@@ -5,9 +5,9 @@
 | **Identifier** | `x-on-behalf-of` |
 | **Category** | `headers` |
 | **Surface** | Inbound HTTP Transport Request Header |
-| **Requirement Level** | **Optional / MANDATORY during User Impersonation** |
+| **Requirement Level** | **Optional (Conditionally Mandatory during User Impersonation)** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | Target Impersonated Subject UUID |
+| **Standard / Reference** | RFC 8693 OAuth 2.0 Token Exchange / OpenID Connect Core §5.4 (subject_type) |
 | **Schema Type** | `string` |
 
 ---
@@ -22,7 +22,7 @@ Designates the target tenant or user identity when an administrative operator or
 ```yaml
 name: x-on-behalf-of
 in: header
-required: true
+required: false
 schema:
   type: string
   pattern: "^[a-zA-Z0-9_-]{3,64}$"

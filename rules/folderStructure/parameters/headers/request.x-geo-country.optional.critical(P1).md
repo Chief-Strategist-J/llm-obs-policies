@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP Transport Request Header |
 | **Requirement Level** | **Optional / Injected by Edge CDN** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | ISO 3166-1 alpha-2 Two-Letter Country Code |
+| **Standard / Reference** | ISO 3166-1 alpha-2 Country Codes / MaxMind GeoIP2 / RFC 5646 Language Tags |
 | **Schema Type** | `string` |
 
 ---

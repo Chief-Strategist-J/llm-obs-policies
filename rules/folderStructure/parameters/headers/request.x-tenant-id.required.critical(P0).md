@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP Transport Request Header |
 | **Requirement Level** | **MANDATORY in Multi-Tenant Environments** |
 | **Criticality Tier** | **CRITICAL (P0)** |
-| **Standard / Reference** | Multi-Tenant Partition UUID / Slug |
+| **Standard / Reference** | RFC 4122 UUID / IETF RFC 2616 Custom Extension Headers / Multi-Tenancy SaaS Architecture (ISO/IEC 17788) |
 | **Schema Type** | `string` |
 
 ---

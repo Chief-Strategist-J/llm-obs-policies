@@ -5,9 +5,9 @@
 | **Identifier** | `x-causation-id` |
 | **Category** | `headers` |
 | **Surface** | Inbound HTTP Transport Request Header |
-| **Requirement Level** | **Optional / MANDATORY for Event-Driven Mutating Calls** |
+| **Requirement Level** | **Optional (Conditionally Mandatory for Event-Driven Mutating Calls)** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | RFC 4122 UUIDv7 / evt-{unix_ms}-{random_hex} |
+| **Standard / Reference** | Event Sourcing Causation Pattern / IETF RFC 4122 UUID / W3C Trace Context §3.3 (tracestate vendor keys) |
 | **Schema Type** | `string` |
 
 ---
@@ -22,7 +22,7 @@ Identifies the immediate precursor event or message that directly caused this re
 ```yaml
 name: x-causation-id
 in: header
-required: true
+required: false
 schema:
   type: string
   pattern: "^[a-zA-Z0-9_-]{16,64}$"

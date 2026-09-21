@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP URL Query Parameter |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Opaque Base64URL Keyset Token |
+| **Standard / Reference** | RFC 5988 Web Linking / IETF draft-ietf-httpapi-rfc5988bis / JSON Web Token RFC 7519 (cursor-as-JWT pattern) |
 | **Schema Type** | `string` |
 
 ---

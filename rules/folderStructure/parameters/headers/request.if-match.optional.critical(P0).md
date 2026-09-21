@@ -5,7 +5,7 @@
 | **Identifier** | `If-Match` |
 | **Category** | `headers` |
 | **Surface** | Inbound HTTP Transport Request Header |
-| **Requirement Level** | **MANDATORY on Versioned Mutations** |
+| **Requirement Level** | **Optional (Conditionally Mandatory on Versioned Mutations)** |
 | **Criticality Tier** | **CRITICAL (P0)** |
 | **Standard / Reference** | RFC 9110 HTTP Semantics ETag / Strong Entity Tag |
 | **Schema Type** | `string` |
@@ -22,7 +22,7 @@ Optimistic concurrency control token. Ensures updates are only applied if caller
 ```yaml
 name: If-Match
 in: header
-required: true
+required: false
 schema:
   type: string
   pattern: "^"[a-zA-Z0-9_-]+"$|^\*$"

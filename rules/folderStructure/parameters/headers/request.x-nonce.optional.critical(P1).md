@@ -5,9 +5,9 @@
 | **Identifier** | `x-nonce` |
 | **Category** | `headers` |
 | **Surface** | Inbound HTTP Transport Request Header |
-| **Requirement Level** | **Optional / MANDATORY on Cryptographically Signed API Verifications** |
+| **Requirement Level** | **Optional (Conditionally Mandatory on Cryptographically Signed API Verifications)** |
 | **Criticality Tier** | **CRITICAL (P1)** |
-| **Standard / Reference** | High-Entropy Cryptographic Nonce String |
+| **Standard / Reference** | NIST SP 800-90A Cryptographic Nonce / IETF RFC 5849 OAuth 1.0 Nonce / OWASP Cryptographic Storage |
 | **Schema Type** | `string` |
 
 ---
@@ -22,7 +22,7 @@ Prevents replay attacks on signed REST endpoints. Paired with timestamp validati
 ```yaml
 name: x-nonce
 in: header
-required: true
+required: false
 schema:
   type: string
   pattern: "^[a-zA-Z0-9_-]{16,64}$"

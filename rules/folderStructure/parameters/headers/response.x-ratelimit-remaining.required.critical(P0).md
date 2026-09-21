@@ -7,7 +7,7 @@
 | **Surface** | Outbound HTTP Transport Response Header |
 | **Requirement Level** | **MANDATORY on All Responses** |
 | **Criticality Tier** | **CRITICAL (P0)** |
-| **Standard / Reference** | Non-negative Integer |
+| **Standard / Reference** | IETF draft-polli-ratelimit-headers-02 / RFC 6585 §4 (429 Too Many Requests) / HTTP Rate Limiting |
 | **Schema Type** | `integer` |
 
 ---

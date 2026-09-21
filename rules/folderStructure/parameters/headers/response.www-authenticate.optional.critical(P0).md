@@ -5,7 +5,7 @@
 | **Identifier** | `WWW-Authenticate` |
 | **Category** | `headers` |
 | **Surface** | Outbound HTTP Transport Response Header |
-| **Requirement Level** | **MANDATORY on HTTP 401** |
+| **Requirement Level** | **Optional (Conditionally Mandatory on HTTP 401)** |
 | **Criticality Tier** | **CRITICAL (P0)** |
 | **Standard / Reference** | RFC 9110 §11.6.1 / RFC 6750 §3 Bearer Token Challenge |
 | **Schema Type** | `string` |

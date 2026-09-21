@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP Transport Request Header |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Client Application Identifier String |
+| **Standard / Reference** | RFC 6749 §2.2 OAuth 2.0 Client Identifier / OpenID Connect Client Metadata |
 | **Schema Type** | `string` |
 
 ---

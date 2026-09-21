@@ -7,7 +7,7 @@
 | **Surface** | Inbound HTTP URL Query Parameter |
 | **Requirement Level** | **Optional** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | Comma-delimited field names with optional '-' prefix for descending order |
+| **Standard / Reference** | JSON:API v1.1 §7.2 Sorting / OData v4 $orderby / IETF RFC 5988 (link relation ordering) |
 | **Schema Type** | `string` |
 
 ---

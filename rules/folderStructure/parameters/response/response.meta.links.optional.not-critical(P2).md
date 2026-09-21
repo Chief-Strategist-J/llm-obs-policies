@@ -7,7 +7,7 @@
 | **Surface** | Response JSON Metadata Field |
 | **Requirement Level** | **Optional / Standardized for HATEOAS** |
 | **Criticality Tier** | **NOT-CRITICAL (P2)** |
-| **Standard / Reference** | HATEOAS Navigation Links Object |
+| **Standard / Reference** | RFC 5988 Web Linking / IETF RFC 8288 (successor) / HATEOAS REST Architectural Constraint (Fielding 2000) |
 | **Schema Type** | `object` |
 
 ---
