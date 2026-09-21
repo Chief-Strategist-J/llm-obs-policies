@@ -402,6 +402,455 @@ silent data loss in REST APIs.
 
 ---
 
+### §7.1 — Standard REST Success Response Envelopes (Exhaustive Master Specification — ALL Parameters)
+
+Every successful REST response MUST return `success: true`, the corresponding transport `statusCode`,
+the payload wrapped inside `data`, and standardized telemetry metadata inside `meta`. Under no
+circumstances may an `error` key appear in a success envelope, and no undeclared top-level fields
+may exist (`additionalProperties: false`).
+
+The master wire payload below represents the **exhaustive, union-complete** success contract. It showcases
+**every single parameter, metadata attribute, format standard, and transport header** defined across this
+specification:
+
+#### §7.1.1 Exhaustive Master Success Wire Contract (All Parameters Included)
+
+**Complete Transport Response Headers:**
+```http
+HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+Location: https://api.example.com/v2/orders/018f6e2b-7c3a-7d4e-b3f2-1a2b3c4d5e6f
+ETag: "018f6e2b-7c3a-7d4e-b3f2-1a2b3c4d5e6f:v2"
+traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+tracestate: rojo=1,congo=4
+x-request-id: req-1700000000000-a1b2c3
+x-correlation-id: corr-1700000000000-x9y8z7
+x-causation-id: evt-1700000000000-k3m4p5
+x-audit-log-id: audit-9c4f-7b1a2d3e-4417
+x-api-version: 2024-11-01
+x-cache-hit: false
+x-shard-key: shard-us-east-04
+x-consistency-level: eventual
+x-region: us-east-1
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 994
+X-RateLimit-Reset: 1700000060
+Deprecation: true
+Sunset: Sat, 01 Aug 2026 00:00:00 GMT
+Link: <https://api.example.com/v3/orders>; rel="successor-version"
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+Cache-Control: private, no-transform, max-age=60
+```
+
+**Complete Response Body (`application/json`) with ALL Data & Meta Parameters:**
+```json
+{
+  "success": true,
+  "statusCode": 201,
+  "data": {
+    "id": "018f6e2b-7c3a-7d4e-b3f2-1a2b3c4d5e6f",
+    "orderNumber": "ORD-2026-88412",
+    "tenantId": "tenant-12345",
+    "clientId": "client-web-app-v1",
+    "userId": "usr_99812",
+    "status": "CONFIRMED",
+    "totalAmount": {
+      "amount": "249.50",
+      "currency": "USD"
+    },
+    "itemCount": 3,
+    "largeSequenceNumber": "9007199254740995",
+    "isActive": true,
+    "hasExpeditedShipping": false,
+    "canCancel": true,
+    "tags": [
+      "priority",
+      "wholesale"
+    ],
+    "notes": null,
+    "scanStatus": "clean",
+    "checksumSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sizeBytes": 1048576,
+    "contentType": "application/pdf",
+    "createdAt": "2026-08-23T13:05:00.000Z",
+    "updatedAt": "2026-08-23T13:10:00.000Z",
+    "version": "018f6e2b-7c3a-7d4e-b3f2-1a2b3c4d5e6f:v2"
+  },
+  "meta": {
+    "requestId": "req-1700000000000-a1b2c3",
+    "correlationId": "corr-1700000000000-x9y8z7",
+    "causationId": "evt-1700000000000-k3m4p5",
+    "timestamp": "2026-08-23T13:10:00.024Z",
+    "executionTimeMs": 24,
+    "apiVersion": "2024-11-01",
+    "auditLogId": "audit-9c4f-7b1a2d3e-4417",
+    "operationId": "op-99281a7b-3c4d",
+    "deprecatedFields": [
+      "notes",
+      "legacyCustomerId"
+    ],
+    "supportedVersions": [
+      "2024-11-01",
+      "2025-06-01"
+    ],
+    "staleness": {
+      "maxLagMs": 150
+    },
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "totalItems": 142,
+      "totalPages": 8,
+      "hasNextPage": true,
+      "hasPreviousPage": false,
+      "nextCursor": "cursor-eyJpZCI6IjAxOGY2ZTJjLTk5OTktN2Q0ZS1iM2YyLTFhMmIzYzRkNWU2ZiJ9",
+      "previousCursor": null,
+      "totalItemsIsEstimate": false
+    },
+    "links": {
+      "self": "https://api.example.com/v2/orders/018f6e2b-7c3a-7d4e-b3f2-1a2b3c4d5e6f",
+      "next": "https://api.example.com/v2/orders?page=2&pageSize=20",
+      "prev": null,
+      "first": "https://api.example.com/v2/orders?page=1&pageSize=20",
+      "last": "https://api.example.com/v2/orders?page=8&pageSize=20",
+      "status": "https://api.example.com/v2/operations/op-99281a7b-3c4d",
+      "related": {
+        "customer": "https://api.example.com/v2/customers/018f6e2a-1111-7d4e-b3f2-1a2b3c4d5e6f",
+        "invoice": "https://api.example.com/v2/invoices/018f6e2c-9999-7d4e-b3f2-1a2b3c4d5e6f"
+      }
+    }
+  }
+}
+```
+
+---
+
+### §7.2 — Standard REST Failed Response Envelopes (Exhaustive Master Specification — ALL Parameters)
+
+Every failed REST response MUST return `success: false`, an HTTP 4xx/5xx `statusCode` strictly matching
+the Canonical Error Code Dictionary, a structured `error` block, and a fully populated `meta` block.
+The `data` key **MUST NOT** be present in an error response.
+
+The master wire payload below represents the **exhaustive, union-complete** failed contract. It showcases
+**every single error attribute, validation detail field, telemetry metadata key, and failure transport header**
+defined across this specification:
+
+#### §7.2.1 Exhaustive Master Failed Wire Contract (All Parameters Included)
+
+**Complete Transport Response Headers (Failure Mode):**
+```http
+HTTP/1.1 400 Bad Request
+Content-Type: application/json; charset=utf-8
+traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+tracestate: rojo=1,congo=4
+x-request-id: req-1700000000000-a1b2c5
+x-correlation-id: corr-1700000000000-x9y8z7
+x-causation-id: evt-1700000000000-k3m4p5
+x-audit-log-id: audit-9c4f-7b1a2d3e-4418
+x-api-version: 2024-11-01
+x-shard-key: shard-us-east-04
+x-region: us-east-1
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 992
+X-RateLimit-Reset: 1700000060
+Retry-After: 30
+WWW-Authenticate: Bearer error="invalid_token", error_description="The presented token or scope is invalid."
+Allow: GET, POST, HEAD, OPTIONS
+Deprecation: true
+Sunset: Sat, 01 Aug 2026 00:00:00 GMT
+Link: <https://api.example.com/v3/orders>; rel="successor-version"
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+Cache-Control: no-store
+```
+
+**Complete Response Body (`application/json`) with ALL Error & Meta Parameters:**
+```json
+{
+  "success": false,
+  "statusCode": 400,
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "One or more payload validation checks failed. Inspect error details for individual constraint violations.",
+    "retryable": false,
+    "details": [
+      {
+        "field": "totalAmount.amount",
+        "issue": "Field must be a valid non-negative decimal string, not a floating-point number or negative value.",
+        "rule": "decimal_string",
+        "rejectedValue": "-24.99"
+      },
+      {
+        "field": "customerEmail",
+        "issue": "Email format does not satisfy RFC 5322 specifications.",
+        "rule": "email_format",
+        "rejectedValue": "invalid-user@"
+      },
+      {
+        "field": "unknownProperty",
+        "issue": "Undeclared additional properties are forbidden under closed schema validation.",
+        "rule": "additional_properties_forbidden",
+        "rejectedValue": "unexpectedValue"
+      }
+    ]
+  },
+  "meta": {
+    "requestId": "req-1700000000000-a1b2c5",
+    "correlationId": "corr-1700000000000-x9y8z7",
+    "causationId": "evt-1700000000000-k3m4p5",
+    "timestamp": "2026-08-23T13:12:00.012Z",
+    "executionTimeMs": 12,
+    "apiVersion": "2024-11-01",
+    "auditLogId": "audit-9c4f-7b1a2d3e-4418",
+    "operationId": "op-99281a7b-3c4d",
+    "deprecatedFields": [
+      "notes",
+      "legacyCustomerId"
+    ],
+    "supportedVersions": [
+      "2024-11-01",
+      "2025-06-01"
+    ],
+    "staleness": {
+      "maxLagMs": 150
+    },
+    "links": {
+      "self": "https://api.example.com/v2/orders",
+      "help": "https://api.example.com/docs/errors/VALIDATION_FAILED",
+      "documentation": "https://api.example.com/docs/v2",
+      "related": {
+        "support": "https://api.example.com/v2/support/tickets",
+        "statusPage": "https://status.example.com"
+      }
+    }
+  }
+}
+```
+
+---
+
+### §7.3 — Universal Request/Response Lifecycle Engine (Open Standards Specification)
+
+This specification defines the universal request/response execution pipeline using open international standards:
+- **IETF RFC 2119 / RFC 8174**: Normative procedural requirements (`MUST`, `SHALL`, `SHOULD`, `MAY`).
+- **CNCF CEL (Common Expression Language)**: Declarative, language-agnostic pure functional expression.
+- **OMG DMN (Decision Model and Notation)**: Deterministic truth tables for validation and invariants.
+- **ABNF (RFC 5234)**: Syntax grammar for headers and payload structures.
+
+---
+
+#### §7.3.1 — Normative Lifecycle Protocol (IETF RFC 2119)
+
+1. **Context & Trace Ingestion**:
+   - The server MUST extract `traceparent` and `tracestate` from inbound headers.
+   - The server SHALL validate that `traceparent` adheres to the 4-part lowercase hex W3C standard.
+   - IF absent, malformed, or containing all zeros, the server MUST inject a synthetic 128-bit `trace_id` and 64-bit `span_id` with flags `01`.
+   - The server MUST bind the resolved trace context to the active distributed telemetry span.
+
+2. **Identity & Correlation Resolution**:
+   - The server MUST resolve `x-request-id`, echoing client input if valid (16..64 chars alphanumeric) or injecting a fresh identifier.
+   - The server SHALL resolve `x-correlation-id`, falling back to `x-request-id` if omitted.
+   - The server SHALL extract `x-causation-id`, `x-tenant-id`, `x-audit-actor-id`, `x-on-behalf-of`, and `x-auth-level`.
+
+3. **Pre-flight & Security Gate**:
+   - The server MUST reject payloads exceeding configured content-length with HTTP 413 `PAYLOAD_TOO_LARGE`.
+   - The server MUST verify requested contract version; if retired or unknown, the server MUST reject with HTTP 400 `UNSUPPORTED_API_VERSION`.
+   - The server MUST evaluate tenant/client rate limit quota; if exhausted, the server MUST reject with HTTP 429 `TOO_MANY_REQUESTS` and include `Retry-After`.
+   - The server MUST authenticate bearer tokens on protected endpoints; if invalid, the server MUST reject with HTTP 401 `UNAUTHENTICATED` and `WWW-Authenticate`.
+   - The server MUST evaluate required authentication assurance levels; if insufficient, the server MUST reject with HTTP 403 `INSUFFICIENT_AUTH_LEVEL`.
+   - The server MUST evaluate RBAC/ABAC permissions; if unauthorized, the server MUST reject with HTTP 403 `FORBIDDEN`.
+
+4. **Cryptographic Idempotency Guard**:
+   - For mutating operations (`POST`, `PUT`, `PATCH`, `DELETE`), the server MUST require `x-idempotency-key`.
+   - IF omitted, the server MUST reject with HTTP 400 `IDEMPOTENCY_KEY_MISSING`.
+   - The server SHALL compute the SHA-256 digest of the canonical request payload, method, and path.
+   - IF an idempotency record exists with an identical payload hash, the server MUST return the cached response with `x-cache-hit: true`.
+   - IF a record exists with a differing payload hash, the server MUST reject with HTTP 409 `IDEMPOTENCY_KEY_REUSE`.
+
+5. **Optimistic Concurrency Control**:
+   - For mutating operations on versioned resources, the server MUST require `If-Match`.
+   - IF missing, the server MUST reject with HTTP 428 `PRECONDITION_REQUIRED`.
+   - IF the header does not match current persistent ETag, the server MUST reject with HTTP 412 `PRECONDITION_FAILED`.
+
+6. **Payload Validation**:
+   - The server MUST validate inbound request payloads against strict closed schemas where `additionalProperties: false`.
+   - IF violations occur, the server MUST reject with HTTP 400 `VALIDATION_FAILED` containing field-level details.
+
+7. **Metadata & Telemetry Assembly**:
+   - The server MUST construct closed-schema `meta` dictionary populated with all 11 standardized attributes (`requestId`, `correlationId`, `causationId`, `timestamp`, `executionTimeMs`, `apiVersion`, `auditLogId`, `operationId`, `deprecatedFields`, `staleness`, `pagination`, `links`).
+
+8. **Transport Header Compilation**:
+   - The server MUST compile complete transport headers across all applicable attributes (`traceparent`, `x-request-id`, `x-correlation-id`, `Strict-Transport-Security`, `X-Content-Type-Options`, `Cache-Control`, `ETag`, `X-RateLimit-*`, `Retry-After`, `WWW-Authenticate`, `Allow`, `Location`, `Deprecation`, `Sunset`, `Link`, `x-cache-hit`).
+
+9. **Envelope Dispatch**:
+   - On success, the server MUST return `ApiResponse<T>` with `success: true`, status code, wrapped `data`, and full `meta`.
+   - On failure, the server MUST return `ApiErrorResponse` with `success: false`, status code, sanitized `error` container, and full `meta`.
+
+---
+
+#### §7.3.2 — Deterministic Decision & State Transition Matrix (OMG DMN / Truth Table)
+
+| Pipeline Stage | Evaluated Predicate | Outcome State | Primary Action / Output | Secondary Invariant |
+| :--- | :--- | :--- | :--- | :--- |
+| **Trace Ingestion** | `traceparent.matches(w3c_regex) && ids != 0` | `VALID_TRACE` | Bind to OpenTelemetry span | Forward downstream verbatim |
+| **Trace Ingestion** | `traceparent == null || parse_error` | `FALLBACK_TRACE` | Inject synthetic trace context | Echo in response headers |
+| **Identity** | `x-request-id.matches(id_regex)` | `VALID_ID` | Bind request ID | Mirror in `meta.requestId` |
+| **Pre-flight** | `content_length > max_payload_bytes` | `ERROR_413` | HTTP 413 `PAYLOAD_TOO_LARGE` | Terminate pipeline immediately |
+| **Pre-flight** | `!(version in active_versions)` | `ERROR_400` | HTTP 400 `UNSUPPORTED_API_VERSION` | Populate `meta.supportedVersions` |
+| **Pre-flight** | `rate_quota.remaining < 0` | `ERROR_429` | HTTP 429 `TOO_MANY_REQUESTS` | Inject `Retry-After` header |
+| **Pre-flight** | `!token.authenticated` | `ERROR_401` | HTTP 401 `UNAUTHENTICATED` | Inject `WWW-Authenticate` header |
+| **Pre-flight** | `token.auth_level < route.required_level` | `ERROR_403` | HTTP 403 `INSUFFICIENT_AUTH_LEVEL` | Trigger step-up auth challenge |
+| **Pre-flight** | `!caller.has_permission` | `ERROR_403` | HTTP 403 `FORBIDDEN` | Record security audit entry |
+| **Idempotency** | `is_mutation && idempotency_key == null` | `ERROR_400` | HTTP 400 `IDEMPOTENCY_KEY_MISSING` | Enforce mutation deduplication |
+| **Idempotency** | `cached.key == key && cached.hash == hash` | `CACHE_HIT` | Return cached response | Set `x-cache-hit: true` |
+| **Idempotency** | `cached.key == key && cached.hash != hash` | `ERROR_409` | HTTP 409 `IDEMPOTENCY_KEY_REUSE` | Reject mutation payload change |
+| **Concurrency** | `is_versioned && if_match == null` | `ERROR_428` | HTTP 428 `PRECONDITION_REQUIRED` | Guard lost-update anomaly |
+| **Concurrency** | `is_versioned && if_match != current_etag` | `ERROR_412` | HTTP 412 `PRECONDITION_FAILED` | Reject stale write |
+| **Validation** | `payload.has_errors` | `ERROR_400` | HTTP 400 `VALIDATION_FAILED` | Populate `error.details` array |
+| **Execution** | `domain_success` | `SUCCESS_2XX` | Return `ApiResponse<T>` with `data` | Synchronous mutation audit write |
+
+---
+
+#### §7.3.3 — Declarative Pipeline Dispatcher (CNCF Common Expression Language)
+
+```cel
+!precondition.allowed
+  ? assemble_error_envelope(
+      precondition.error_code,
+      precondition.message,
+      false,
+      null,
+      assemble_meta(identity, elapsed_ms, timestamp_utc, version, null, {}),
+      precondition.status_code
+    )
+  : is_mutation && idempotency.action == "RETURN_CACHED"
+    ? idempotency.cached_response
+    : is_mutation && idempotency.action == "ERROR"
+      ? assemble_error_envelope(
+          idempotency.error_code,
+          idempotency.message,
+          false,
+          null,
+          assemble_meta(identity, elapsed_ms, timestamp_utc, version, null, {}),
+          idempotency.status_code
+        )
+      : is_mutation && concurrency.action == "ERROR"
+        ? assemble_error_envelope(
+            concurrency.error_code,
+            concurrency.message,
+            false,
+            null,
+            assemble_meta(identity, elapsed_ms, timestamp_utc, version, null, {}),
+            concurrency.status_code
+          )
+        : is_mutation && validation.has_errors
+          ? assemble_error_envelope(
+              "VALIDATION_FAILED",
+              "Payload validation constraints failed.",
+              false,
+              validation.errors,
+              assemble_meta(identity, elapsed_ms, timestamp_utc, version, null, {}),
+              400
+            )
+          : assemble_success_envelope(
+              domain_result.data,
+              assemble_meta(identity, elapsed_ms, timestamp_utc, version, audit_log_id, domain_result.meta),
+              domain_result.status_code
+            )
+```
+
+---
+
+### §7.4 — Master Parameter Inventory & Presence Matrix (Categorized: Headers, Request, Response)
+
+The following master matrix inventories **every single parameter and transport header** defined across this document. Each entry is categorized into dedicated subdirectories (`headers/`, `request/`, and `response/`) under `./parameters/`, establishing its exact type, presence contract, and detailed specification file:
+
+#### §7.4.1 — Transport Layer Headers (`./parameters/headers/`)
+
+| Parameter / Header Key | Direction | Requirement Level | Criticality Tier | Standard / Reference | Detailed Specification File | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `traceparent` | Inbound & Outbound | **MANDATORY** | **CRITICAL (P0)** | W3C Trace Context | [`request.traceparent.required.critical(P0).md`](./parameters/headers/request.traceparent.required.critical(P0).md) / [`response.traceparent.required.critical(P0).md`](./parameters/headers/response.traceparent.required.critical(P0).md) | OpenTelemetry distributed trace context identifier. |
+| `tracestate` | Inbound & Outbound | Optional | **NOT-CRITICAL (P2)** | W3C Trace Context | [`request.tracestate.optional.not-critical(P2).md`](./parameters/headers/request.tracestate.optional.not-critical(P2).md) / [`response.tracestate.optional.not-critical(P2).md`](./parameters/headers/response.tracestate.optional.not-critical(P2).md) | Opaque vendor trace baggage. |
+| `x-request-id` | Inbound & Outbound | **MANDATORY** | **CRITICAL (P0)** | UUIDv7 / req-{ms}-{rand} | [`request.x-request-id.required.critical(P0).md`](./parameters/headers/request.x-request-id.required.critical(P0).md) / [`response.x-request-id.required.critical(P0).md`](./parameters/headers/response.x-request-id.required.critical(P0).md) | Unique HTTP execution identifier. Echoed in `meta.requestId`. |
+| `x-correlation-id` | Inbound & Outbound | **MANDATORY** | **CRITICAL (P0)** | UUIDv7 / corr-{ms}-{rand} | [`request.x-correlation-id.required.critical(P0).md`](./parameters/headers/request.x-correlation-id.required.critical(P0).md) / [`response.x-correlation-id.required.critical(P0).md`](./parameters/headers/response.x-correlation-id.required.critical(P0).md) | End-to-end distributed transaction identifier. Echoed in `meta.correlationId`. |
+| `x-causation-id` | Inbound & Outbound | Optional / Event-Driven | **CRITICAL (P1)** | UUIDv7 / evt-{ms}-{rand} | [`request.x-causation-id.optional.critical(P1).md`](./parameters/headers/request.x-causation-id.optional.critical(P1).md) / [`response.x-causation-id.optional.critical(P1).md`](./parameters/headers/response.x-causation-id.optional.critical(P1).md) | Direct precursor causation event reference. Echoed in `meta.causationId`. |
+| `x-idempotency-key` | Inbound Request | **MANDATORY on Mutations** | **CRITICAL (P0)** | IETF Draft / UUIDv4/v7 | [`request.x-idempotency-key.required.critical(P0).md`](./parameters/headers/request.x-idempotency-key.required.critical(P0).md) | Mutation deduplication token preventing double-execution. |
+| `x-tenant-id` | Inbound Request | **MANDATORY in Multi-Tenant**| **CRITICAL (P0)** | Tenant Partition UUID | [`request.x-tenant-id.required.critical(P0).md`](./parameters/headers/request.x-tenant-id.required.critical(P0).md) | Multi-tenant logical isolation partition key. |
+| `Authorization` | Inbound Request | **MANDATORY on Protected** | **CRITICAL (P0)** | RFC 6750 Bearer JWT | [`request.authorization.required.critical(P0).md`](./parameters/headers/request.authorization.required.critical(P0).md) | OAuth 2.0 / JWT bearer credentials. |
+| `x-api-version` | Inbound & Outbound | **MANDATORY** | **CRITICAL (P0)** | CalVer (YYYY-MM-DD) | [`request.x-api-version.required.critical(P0).md`](./parameters/headers/request.x-api-version.required.critical(P0).md) / [`response.x-api-version.required.critical(P0).md`](./parameters/headers/response.x-api-version.required.critical(P0).md) | Contract version selector. Echoed in `meta.apiVersion`. |
+| `x-audit-actor-id` | Inbound Request | **MANDATORY on Mutations** | **CRITICAL (P0)** | Actor Identity UUID | [`request.x-audit-actor-id.required.critical(P0).md`](./parameters/headers/request.x-audit-actor-id.required.critical(P0).md) | Identifies human or automated actor executing mutation. |
+| `x-auth-level` | Inbound Request | Optional / High-Risk | **CRITICAL (P1)** | Assurance Level (`mfa`) | [`request.x-auth-level.optional.critical(P1).md`](./parameters/headers/request.x-auth-level.optional.critical(P1).md) | Step-up authentication assurance verification. |
+| `If-Match` | Inbound Request | **MANDATORY on Versioned** | **CRITICAL (P0)** | RFC 9110 Strong ETag | [`request.if-match.optional.critical(P0).md`](./parameters/headers/request.if-match.optional.critical(P0).md) | Optimistic concurrency control lost-update guard. |
+| `Content-Type` | Inbound Request | **MANDATORY on Body** | **CRITICAL (P0)** | RFC 9110 MIME Type | [`request.content-type.required.critical(P0).md`](./parameters/headers/request.content-type.required.critical(P0).md) | Dispatches JSON parsing and PATCH semantics. |
+| `x-client-id` | Inbound Request | Optional | **NOT-CRITICAL (P2)** | Client Identifier | [`request.x-client-id.optional.not-critical(P2).md`](./parameters/headers/request.x-client-id.optional.not-critical(P2).md) | Ingests client application identifier for quota tiering. |
+| `x-user-id` | Inbound Request | Optional | **NOT-CRITICAL (P2)** | User UUID | [`request.x-user-id.optional.not-critical(P2).md`](./parameters/headers/request.x-user-id.optional.not-critical(P2).md) | Verified user subject propagated internally. |
+| `x-on-behalf-of` | Inbound Request | Optional / Impersonation | **CRITICAL (P1)** | Target Subject UUID | [`request.x-on-behalf-of.optional.critical(P1).md`](./parameters/headers/request.x-on-behalf-of.optional.critical(P1).md) | Administrative support operator impersonation target. |
+| `x-forwarded-for` | Inbound Request | **MANDATORY at Ingress** | **CRITICAL (P0)** | RFC 7239 IP List | [`request.x-forwarded-for.required.critical(P0).md`](./parameters/headers/request.x-forwarded-for.required.critical(P0).md) | Client origin IP across trusted proxy chain. |
+| `x-geo-country` | Inbound Request | Optional / Edge CDN | **CRITICAL (P1)** | ISO 3166-1 alpha-2 | [`request.x-geo-country.optional.critical(P1).md`](./parameters/headers/request.x-geo-country.optional.critical(P1).md) | Physical jurisdiction code for data residency. |
+| `x-consent-id` | Inbound Request | Optional / PII Processing | **CRITICAL (P1)** | Consent Ledger UUID | [`request.x-consent-id.optional.critical(P1).md`](./parameters/headers/request.x-consent-id.optional.critical(P1).md) | Explicit privacy consent reference. |
+| `x-content-sha256` | Inbound Request | Optional / High-Value | **CRITICAL (P1)** | SHA-256 Hex Digest | [`request.x-content-sha256.optional.critical(P1).md`](./parameters/headers/request.x-content-sha256.optional.critical(P1).md) | Cryptographic payload integrity verification. |
+| `x-nonce` | Inbound Request | Optional / Signed APIs | **CRITICAL (P1)** | High-Entropy String | [`request.x-nonce.optional.critical(P1).md`](./parameters/headers/request.x-nonce.optional.critical(P1).md) | Replay attack prevention nonce. |
+| `Accept` | Inbound Request | Optional | **NOT-CRITICAL (P2)** | RFC 9110 MIME Type | [`request.accept.optional.not-critical(P2).md`](./parameters/headers/request.accept.optional.not-critical(P2).md) | Informs media types client is prepared to process. |
+| `Accept-Language` | Inbound Request | Optional | **NOT-CRITICAL (P2)** | BCP 47 Language Tag | [`request.accept-language.optional.not-critical(P2).md`](./parameters/headers/request.accept-language.optional.not-critical(P2).md) | Natural language preference for error messages. |
+| `x-audit-log-id` | Outbound Response | **MANDATORY on Mutations** | **CRITICAL (P0)** | audit-{ms}-{rand} | [`response.x-audit-log-id.optional.critical(P0).md`](./parameters/headers/response.x-audit-log-id.optional.critical(P0).md) | Immutable audit record ID written synchronously. |
+| `ETag` | Outbound Response | **MANDATORY on Versioned** | **CRITICAL (P0)** | RFC 9110 Strong ETag | [`response.etag.optional.critical(P0).md`](./parameters/headers/response.etag.optional.critical(P0).md) | Resource version representation token for OCC. |
+| `X-RateLimit-Limit` | Outbound Response | **MANDATORY** | **CRITICAL (P0)** | Integer Ceiling | [`response.x-ratelimit-limit.required.critical(P0).md`](./parameters/headers/response.x-ratelimit-limit.required.critical(P0).md) | Maximum request quota budget allocated. |
+| `X-RateLimit-Remaining` | Outbound Response | **MANDATORY** | **CRITICAL (P0)** | Integer Remaining | [`response.x-ratelimit-remaining.required.critical(P0).md`](./parameters/headers/response.x-ratelimit-remaining.required.critical(P0).md) | Remaining request budget in sliding window. |
+| `X-RateLimit-Reset` | Outbound Response | **MANDATORY** | **CRITICAL (P0)** | Epoch Seconds | [`response.x-ratelimit-reset.required.critical(P0).md`](./parameters/headers/response.x-ratelimit-reset.required.critical(P0).md) | Epoch timestamp when quota refreshes. |
+| `Retry-After` | Outbound Response | **MANDATORY on 429/503** | **CRITICAL (P0)** | Seconds Integer | [`response.retry-after.optional.critical(P0).md`](./parameters/headers/response.retry-after.optional.critical(P0).md) | Mandatory caller back-off delay in seconds. |
+| `WWW-Authenticate` | Outbound Response | **MANDATORY on 401** | **CRITICAL (P0)** | RFC 6750 Challenge | [`response.www-authenticate.optional.critical(P0).md`](./parameters/headers/response.www-authenticate.optional.critical(P0).md) | OAuth 2.0 credential challenge instructions. |
+| `Allow` | Outbound Response | **MANDATORY on 405** | **CRITICAL (P1)** | RFC 9110 Verbs List | [`response.allow.optional.critical(P1).md`](./parameters/headers/response.allow.optional.critical(P1).md) | Permitted HTTP verbs for requested URI. |
+| `Location` | Outbound Response | **MANDATORY on 201/202** | **CRITICAL (P1)** | RFC 9110 URI | [`response.location.optional.critical(P1).md`](./parameters/headers/response.location.optional.critical(P1).md) | Resource URI (201) or async job monitor (202). |
+| `Strict-Transport-Security` | Outbound Response | **MANDATORY** | **CRITICAL (P0)** | RFC 6797 HSTS | [`response.strict-transport-security.required.critical(P0).md`](./parameters/headers/response.strict-transport-security.required.critical(P0).md) | Enforces TLS encryption for 2 years. |
+| `X-Content-Type-Options` | Outbound Response | **MANDATORY** | **CRITICAL (P0)** | nosniff Directive | [`response.x-content-type-options.required.critical(P0).md`](./parameters/headers/response.x-content-type-options.required.critical(P0).md) | Prevents MIME-sniffing script execution. |
+| `Cache-Control` | Outbound Response | **MANDATORY** | **CRITICAL (P0)** | RFC 9111 Directives | [`response.cache-control.required.critical(P0).md`](./parameters/headers/response.cache-control.required.critical(P0).md) | Enforces `no-store` on mutations/sensitive data. |
+| `Deprecation` | Outbound Response | **MANDATORY on Deprecated** | **NOT-CRITICAL (P2)** | RFC 8594 Flag | [`response.deprecation.optional.not-critical(P2).md`](./parameters/headers/response.deprecation.optional.not-critical(P2).md) | Signals route/version obsolescence. |
+| `Sunset` | Outbound Response | **MANDATORY on Deprecated** | **NOT-CRITICAL (P2)** | RFC 8594 HTTP-Date | [`response.sunset.optional.not-critical(P2).md`](./parameters/headers/response.sunset.optional.not-critical(P2).md) | Final retirement date yielding 410 Gone. |
+| `Link` | Outbound Response | Optional | **NOT-CRITICAL (P2)** | RFC 8288 Hypermedia | [`response.link.optional.not-critical(P2).md`](./parameters/headers/response.link.optional.not-critical(P2).md) | Successor version documentation links. |
+| `x-cache-hit` | Outbound Response | Optional | **NOT-CRITICAL (P2)** | Boolean String | [`response.x-cache-hit.optional.not-critical(P2).md`](./parameters/headers/response.x-cache-hit.optional.not-critical(P2).md) | Declares idempotency or cache replay. |
+| `x-shard-key` | Outbound Response | Optional | **NOT-CRITICAL (P2)** | Shard Slug | [`response.x-shard-key.optional.not-critical(P2).md`](./parameters/headers/response.x-shard-key.optional.not-critical(P2).md) | Database partition diagnostics identifier. |
+| `x-region` | Outbound Response | Optional | **NOT-CRITICAL (P2)** | Cloud Region Slug | [`response.x-region.optional.not-critical(P2).md`](./parameters/headers/response.x-region.optional.not-critical(P2).md) | Cloud region processing validation. |
+
+---
+
+#### §7.4.2 — Request Query & Body Parameters (`./parameters/request/`)
+
+| Parameter Key | Location | Type | Presence Contract | Detailed Specification File | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `pageSize` | Query Parameter | `integer` | Optional (Default: 50, Max: 250) | [`request.page-size.optional.not-critical(P2).md`](./parameters/request/request.page-size.optional.not-critical(P2).md) | Maximum item limit per collection page. |
+| `page` | Query Parameter | `integer` | Optional (Default: 1) | [`request.page.optional.not-critical(P2).md`](./parameters/request/request.page.optional.not-critical(P2).md) | 1-indexed page number for offset pagination. |
+| `cursor` | Query Parameter | `string` | Optional | [`request.cursor.optional.not-critical(P2).md`](./parameters/request/request.cursor.optional.not-critical(P2).md) | Opaque Base64URL token for keyset pagination. |
+| `sort` | Query Parameter | `string` | Optional | [`request.sort.optional.not-critical(P2).md`](./parameters/request/request.sort.optional.not-critical(P2).md) | Sort ordering with `-` prefix for descending. |
+| `filter` | Query Parameter | `string` | Optional | [`request.filter.optional.not-critical(P2).md`](./parameters/request/request.filter.optional.not-critical(P2).md) | Structured field predicates (`filter[field]=val`). |
+| `body` | Request Payload | `object` | **MANDATORY on POST/PUT/PATCH** | [`request.body.optional.critical(P0).md`](./parameters/request/request.body.optional.critical(P0).md) | Closed-schema mutation payload data. |
+
+---
+
+#### §7.4.3 — Response Body & Metadata Parameters (`./parameters/response/`)
+
+| Parameter Key | Location | Type | Presence Contract | Detailed Specification File | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `success` | Envelope Root | `boolean` | **MANDATORY** | [`response.success.required.critical(P0).md`](./parameters/response/response.success.required.critical(P0).md) | `true` on success, `false` on error. Never inverted. |
+| `statusCode` | Envelope Root | `integer` | **MANDATORY** | [`response.status-code.required.critical(P0).md`](./parameters/response/response.status-code.required.critical(P0).md) | Exact mirror of HTTP transport status code. |
+| `data` | Envelope Root | `object \| array` | **MANDATORY on Success; FORBIDDEN on Error** | [`response.data.optional.critical(P0).md`](./parameters/response/response.data.optional.critical(P0).md) | Resource payload (`[]` for empty lists, never `null`). |
+| `error` | Envelope Root | `object` | **MANDATORY on Error; FORBIDDEN on Success** | [`response.error.optional.critical(P0).md`](./parameters/response/response.error.optional.critical(P0).md) | Structured error container (`code`, `message`, `retryable`, `details`). |
+| `meta.requestId` | Meta Object | `string` | **MANDATORY** | [`request.x-request-id.required.critical(P0).md`](./parameters/headers/request.x-request-id.required.critical(P0).md) | Echoes `x-request-id`. Unique per HTTP exchange. |
+| `meta.correlationId` | Meta Object | `string` | **MANDATORY** | [`request.x-correlation-id.required.critical(P0).md`](./parameters/headers/request.x-correlation-id.required.critical(P0).md) | Echoes `x-correlation-id`. Unifies distributed flow. |
+| `meta.causationId` | Meta Object | `string \| null` | Optional / Event-Driven | [`request.x-causation-id.optional.critical(P1).md`](./parameters/headers/request.x-causation-id.optional.critical(P1).md) | Echoes direct causal trigger identifier. |
+| `meta.timestamp` | Meta Object | `string` | **MANDATORY** | [`response.meta.timestamp.required.critical(P0).md`](./parameters/response/response.meta.timestamp.required.critical(P0).md) | RFC 3339 / ISO-8601 UTC with millisecond precision (`.123Z`). |
+| `meta.executionTimeMs`| Meta Object | `integer` | **MANDATORY** | [`response.meta.execution-time-ms.required.critical(P0).md`](./parameters/response/response.meta.execution-time-ms.required.critical(P0).md) | Server-side execution duration in milliseconds. |
+| `meta.apiVersion` | Meta Object | `string` | **MANDATORY** | [`response.meta.api-version.required.critical(P0).md`](./parameters/response/response.meta.api-version.required.critical(P0).md) | Active contract version that generated response. |
+| `meta.auditLogId` | Meta Object | `string` | **MANDATORY on Audited Mutations** | [`response.x-audit-log-id.optional.critical(P0).md`](./parameters/headers/response.x-audit-log-id.optional.critical(P0).md) | Immutable audit log record reference. |
+| `meta.operationId` | Meta Object | `string` | **MANDATORY on 202 Accepted** | [`response.meta.operation-id.optional.critical(P1).md`](./parameters/response/response.meta.operation-id.optional.critical(P1).md) | Asynchronous task tracking job identifier. |
+| `meta.deprecatedFields`| Meta Object | `array` | **MANDATORY on Deprecated Attributes** | [`response.meta.deprecated-fields.optional.not-critical(P2).md`](./parameters/response/response.meta.deprecated-fields.optional.not-critical(P2).md) | List of deprecated attributes present in payload. |
+| `meta.supportedVersions`| Meta Object | `array` | **MANDATORY on Version Error** | [`response.meta.supported-versions.optional.critical(P1).md`](./parameters/response/response.meta.supported-versions.optional.critical(P1).md) | Active supported versions on `UNSUPPORTED_API_VERSION`. |
+| `meta.staleness` | Meta Object | `object` | **MANDATORY on Eventual Reads** | [`response.meta.staleness.optional.critical(P1).md`](./parameters/response/response.meta.staleness.optional.critical(P1).md) | Replication lag ceiling (`maxLagMs`). |
+| `meta.pagination` | Meta Object | `object` | **MANDATORY on Collections** | [`response.meta.pagination.optional.critical(P1).md`](./parameters/response/response.meta.pagination.optional.critical(P1).md) | Paging metadata (`page`, `pageSize`, `totalItems`, `totalPages`, cursors). |
+| `meta.links` | Meta Object | `object` | Optional (Standardized for HATEOAS) | [`response.meta.links.optional.not-critical(P2).md`](./parameters/response/response.meta.links.optional.not-critical(P2).md) | Hypermedia navigation URIs (`self`, `help`, `documentation`). |
+
+---
+
 ### §8 — GraphQL Error Contract (v1 CLAIMED GraphQL SUPPORT BUT NEVER SPECIFIED IT)
 
 GraphQL responses do **not** use `ApiResponse`/`ApiErrorResponse`. They MUST conform to the GraphQL
@@ -626,10 +1075,14 @@ top-level field, is a spec violation** — envelopes MUST validate against a clo
 | `error` | — | **MUST NOT be present** | Presence of `error` alongside `success: true` is a spec violation. |
 | `meta.requestId` | `string` | MANDATORY | Echoes `x-request-id`. |
 | `meta.correlationId` | `string` | MANDATORY | Echoes `x-correlation-id`. |
-| `meta.causationId` | `string` | MANDATORY for event-driven flows; optional otherwise | |
+| `meta.causationId` | `string \| null` | MANDATORY for event-driven flows; optional otherwise | Echoes `x-causation-id`. |
 | `meta.timestamp` | `string` | MANDATORY | Strict ISO-8601 UTC with millisecond precision and literal `Z` suffix: `2026-08-23T13:10:00.000Z`. Offsets other than `Z` (e.g. `+00:00`) are a spec violation — one canonical form only. |
 | `meta.executionTimeMs` | `integer` | MANDATORY | Non-negative. Measures server-side handler execution only, excluding network transit. |
 | `meta.apiVersion` | `string` | MANDATORY (NEW in v3) | The resolved version from §2.3 — lets clients detect silent version drift. |
+| `meta.auditLogId` | `string` | MANDATORY for all audited mutations & security events (§0.3, §0.4) | Echoes the durable audit record ID (`audit-9c4f...`) written synchronously for the action. |
+| `meta.deprecatedFields` | `array` | MANDATORY when any deprecated field is returned in `data` (§16.5); absent otherwise | Machine-readable string array of deprecated field names (`["oldField"]`). |
+| `meta.staleness` | `object` | MANDATORY when serving eventual consistency (§12.5); absent otherwise | Declares maximum replication lag bounds (`{"maxLagMs": 150}`). |
+| `meta.links` | `object` | Optional (standardized format if used, §16.5) | Hypermedia links with absolute URLs (`{"self": "...", "related": {...}}`). |
 | `meta.pagination` | `object` | MANDATORY when `data` is a collection; MUST be absent otherwise | See §13.2. |
 | Any other top-level key | — | **FORBIDDEN** | Schema is closed. Extension data belongs inside `data`, never bolted onto the envelope root. |
 
@@ -669,6 +1122,18 @@ top-level field, is a spec violation** — envelopes MUST validate against a clo
 4. **Trailing/undocumented fields are forbidden**, not merely discouraged — envelope schemas MUST
    be validated with `additionalProperties: false` in CI, and a build that adds a field without a
    spec amendment MUST fail CI.
+
+#### §13.5 Canonical Concrete Response Artifacts
+
+For exhaustive, copy-paste-ready HTTP wire response examples featuring complete parameter sets,
+accompanying transport headers (`traceparent`, `x-request-id`, `x-audit-log-id`, `ETag`, rate limits,
+security headers), and exact field validations:
+- **§7.1.1**: Single Resource Mutation & Read Success (`201 Created` / `200 OK` `ApiResponse<T>`)
+- **§7.1.2**: Paginated Collection Query Success (`200 OK` `ApiPaginatedResponse<T>`)
+- **§7.2.1**: Client Schema & Constraint Validation Failure (`400 Bad Request` `VALIDATION_FAILED`)
+- **§7.2.2**: Security, Audit & Idempotency Key Reuse Conflict (`409 Conflict` `IDEMPOTENCY_KEY_REUSE`)
+- **§7.2.3**: Rate Limiting & Backpressure Rejection (`429 Too Many Requests` `TOO_MANY_REQUESTS`)
+- **§7.2.4**: Downstream Outage & Circuit Breaker Trip (`503 Service Unavailable` `SERVICE_UNAVAILABLE`)
 
 ---
 
