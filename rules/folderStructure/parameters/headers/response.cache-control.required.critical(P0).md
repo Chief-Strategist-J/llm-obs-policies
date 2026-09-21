@@ -41,8 +41,11 @@ cache-directive = token [ "=" ( token / quoted-string ) ]
 
 ### 4. Normative Lifecycle Protocol (IETF RFC 2119)
 
-1. The server MUST enforce `no-store` on any response containing authenticated, mutating, sensitive, or PII data.
-2. Public cacheable read endpoints SHALL declare explicit `max-age` and revalidation directives.
+1. The server MUST determine the cacheability category of each response before transmission.
+2. IF the response contains authenticated data, user-specific PII, tokens, or results from a mutating operation, the server MUST set `Cache-Control: no-store`.
+3. IF the response is a public, read-only, non-personalised resource with a defined TTL, the server SHALL set `Cache-Control: public, max-age={ttl}, must-revalidate`.
+4. IF the response is authoritative but may become stale (ETag-based), the server SHOULD set `Cache-Control: no-cache` to force revalidation without preventing storage.
+
 
 ---
 
@@ -50,8 +53,11 @@ cache-directive = token [ "=" ( token / quoted-string ) ]
 
 | Input Condition | Predicate Evaluation | Output Value | Secondary Effect |
 | :--- | :--- | :--- | :--- |
-| Mutating method or sensitive/authenticated payload | `is_mutation || is_sensitive` | `no-store` | Prevent caching across proxies |
-| Public read-only response with cache policy | `!is_mutation && cache_policy.max_age > 0` | `public, max-age={seconds}, must-revalidate` | Enable CDN caching |
+| Authenticated, PII, or mutating response | `is_sensitive || is_mutation` | `no-store` | Prevents caching across proxies and browsers |
+| Public read-only cacheable response with TTL | `!is_sensitive && cache_ttl > 0` | `public, max-age={ttl}, must-revalidate` | Enable CDN and browser caching |
+| Authoritative but potentially stale (ETag) | `has_etag && !is_sensitive` | `no-cache` | Force conditional revalidation |
+| Rate-limited or error response | `is_error || is_rate_limited` | `no-store` | Prevent caching of error states |
+
 
 ---
 
@@ -66,7 +72,7 @@ is_mutation || is_sensitive || cache_max_age == 0 ? "no-store" : "public, max-ag
 ### 7. Failure & Security Enforcement
 - Responses containing user credentials, tokens, or PII must strictly return no-store.
 - Prevents stale or contaminated caches.
-
+- Any response containing OAuth tokens, session identifiers, or JWKS material MUST declare `no-store` — leaking credentials to shared caches is a critical vulnerability.
 ---
 
 ### 8. Protocol Wire Example

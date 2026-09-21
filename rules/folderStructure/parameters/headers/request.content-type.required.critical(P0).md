@@ -72,7 +72,8 @@ media-type   = type "/" subtype
 ### 7. Failure & Security Enforcement
 - Payloads without Content-Type must be rejected before reading body stream.
 - Must never allow executable script or arbitrary binary MIME types on REST endpoints.
-
+- Content sniffing MUST be disabled (`X-Content-Type-Options: nosniff`) on all endpoints that accept uploads.
+- Requests with body payloads that omit `Content-Type` MUST be rejected before the body stream is read — never buffer unknown MIME type payloads.
 ---
 
 ### 8. Protocol Wire Example

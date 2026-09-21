@@ -41,8 +41,11 @@ entity-tag = DQUOTE 1*( VCHAR ) DQUOTE
 
 ### 4. Normative Lifecycle Protocol (IETF RFC 2119)
 
-1. On versioned entity operations, the server MUST calculate and return the current strong entity tag.
-2. The server MUST format the value enclosed in double quotes.
+1. The server MUST generate an ETag for all GET and HEAD responses on mutable resources.
+2. The ETag MUST be computed from a deterministic hash of the resource version, content body, or a monotonic revision counter.
+3. IF a conditional request includes `If-Match`, the server MUST compare the provided ETag to the stored resource ETag before permitting mutation.
+4. IF ETags mismatch, the server MUST respond with HTTP 412 PRECONDITION_FAILED — the client must re-fetch before retrying.
+
 
 ---
 
@@ -66,7 +69,8 @@ resource.etag != null ? '"' + resource.etag + '"' : null
 ### 7. Failure & Security Enforcement
 - Must be returned on successful POST, PUT, PATCH, and GET for versioned entities.
 - Must be updated atomically upon every state change.
-
+- ETags MUST NOT expose internal implementation details (e.g., database row versions, memory addresses) — use opaque hashes.
+- Weak ETags (`W/"..."`) MUST NOT be used on resources requiring strong byte-for-byte identity (e.g., content downloads, version-controlled assets).
 ---
 
 ### 8. Protocol Wire Example

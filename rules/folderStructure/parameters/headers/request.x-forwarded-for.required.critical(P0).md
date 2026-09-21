@@ -69,7 +69,8 @@ has(request.headers["x-forwarded-for"])
 ### 7. Failure & Security Enforcement
 - Spoofable if edge proxies do not sanitize inbound headers.
 - Used for geofencing, IP rate limiting, and security forensic logging.
-
+- All inbound `X-Forwarded-For` values MUST be treated as untrusted by default — only IPs appended by the trusted edge gateway are authoritative.
+- The resolved client IP MUST be used for rate limiting, geofencing, and audit trail logging — using a spoofed XFF IP is a P0 security incident.
 ---
 
 ### 8. Protocol Wire Example

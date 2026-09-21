@@ -69,7 +69,8 @@ has(request.headers["x-audit-actor-id"])
 ### 7. Failure & Security Enforcement
 - Every state-changing HTTP operation must capture actor identity.
 - Reflected in audit log entries and meta.auditLogId association.
-
+- Actor ID MUST be written to the immutable audit ledger before any domain mutation is committed — the actor must be known before state changes.
+- Actor ID MUST NOT be user-modifiable in authenticated flows — it MUST be derived from the validated JWT `sub` claim, not the raw header value.
 ---
 
 ### 8. Protocol Wire Example

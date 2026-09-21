@@ -20,12 +20,20 @@ Container for domain payload. On success, holds resource object or list of objec
 ### 2. Open Standard Contract Schema (OpenAPI 3.1 & JSON Schema 2020-12)
 
 ```yaml
-name: data
-in: body
-required: true
+# data is a JSON response body field — defined under the response schema, not as a header parameter.
 schema:
-  type: object | array
+  oneOf:
+    - type: object
+      description: "Single entity payload on resource retrieval or mutation success."
+      unevaluatedProperties: false
+    - type: array
+      description: "Collection payload on list operations."
+      items:
+        type: object
+  description: "Domain payload container. Present on 2xx success only; MUST be absent on error responses."
 ```
+
+> `data` is a root field in the JSON response envelope. On empty collections, MUST be `[]` (never `null`). On single entity success, MUST be an object. On 204 No Content, `data` MUST be omitted entirely.
 
 ---
 
@@ -66,7 +74,7 @@ is_success ? (payload != null ? payload : {}) : null
 ### 7. Failure & Security Enforcement
 - Collections must return empty array [] when no items exist, never null.
 - Data key must not exist on failure responses.
-
+- The `data` field MUST be omitted (key absent) on error responses — returning `data: null` alongside `error` creates ambiguous dual-state envelopes.
 ---
 
 ### 8. Protocol Wire Example

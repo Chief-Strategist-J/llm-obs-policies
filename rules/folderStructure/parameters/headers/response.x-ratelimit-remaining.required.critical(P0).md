@@ -40,7 +40,11 @@ X-RateLimit-Remaining = 1*DIGIT
 
 ### 4. Normative Lifecycle Protocol (IETF RFC 2119)
 
-1. The server MUST return remaining budget integer clamped at zero.
+1. The server MUST compute remaining budget as `max(0, limit - consumed)` at time of response.
+2. The server MUST inject `X-RateLimit-Remaining` on every HTTP response, including 429 responses.
+3. When quota is exhausted, the value MUST be `0` — negative values are forbidden.
+4. The remaining count MUST be decremented atomically to prevent race conditions in concurrent-request scenarios.
+
 
 ---
 
@@ -64,7 +68,8 @@ string(rate_quota.remaining >= 0 ? rate_quota.remaining : 0)
 ### 7. Failure & Security Enforcement
 - Reaching 0 signals imminent 429 Too Many Requests rejection.
 - Allows smart clients to proactively back off.
-
+- The remaining count MUST be decremented atomically (e.g., Redis DECRBY in a transaction) — non-atomic decrement allows quota over-consumption under concurrency.
+- Clients observing `X-RateLimit-Remaining: 0` MUST stop issuing requests and wait for `X-RateLimit-Reset` before retrying.
 ---
 
 ### 8. Protocol Wire Example

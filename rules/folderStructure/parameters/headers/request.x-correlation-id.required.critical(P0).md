@@ -69,7 +69,8 @@ has(request.headers["x-correlation-id"]) && request.headers["x-correlation-id"].
 ### 7. Failure & Security Enforcement
 - Correlation ID must never change across downstream service calls within the same workflow.
 - Must be mirrored in response headers and meta.correlationId.
-
+- Correlation ID MUST be immutable once assigned — no downstream hop may modify it; a change mid-chain is a critical tracing violation.
+- Correlation IDs MUST NOT contain PII, user identifiers, or predictable sequential integers — use UUIDv4/v7 or a CSPRNG-derived token.
 ---
 
 ### 8. Protocol Wire Example

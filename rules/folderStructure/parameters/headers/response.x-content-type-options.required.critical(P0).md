@@ -40,7 +40,11 @@ X-Content-Type-Options = "nosniff"
 
 ### 4. Normative Lifecycle Protocol (IETF RFC 2119)
 
-1. The server MUST include `X-Content-Type-Options: nosniff` on every HTTP response.
+1. The server MUST set `X-Content-Type-Options: nosniff` on ALL HTTP responses, regardless of content type.
+2. The directive instructs the browser to strictly honour the declared `Content-Type` and refuse MIME-type sniffing.
+3. The server MUST ensure `Content-Type` is declared correctly on every response before relying on `nosniff` for protection.
+4. The value MUST always be the literal string `nosniff` — no variations or additional directives are defined by the specification.
+
 
 ---
 
@@ -48,7 +52,10 @@ X-Content-Type-Options = "nosniff"
 
 | Input Condition | Predicate Evaluation | Output Value | Secondary Effect |
 | :--- | :--- | :--- | :--- |
-| All responses | `true` | `nosniff` | Inject security header |
+| Any HTTP response | `true` | `nosniff` | Instruct browser to disable MIME sniffing |
+| Response with incorrect or missing Content-Type | `content_type == null` | `nosniff` (still set) | Log Content-Type missing warning |
+| Inbound request contains X-Content-Type-Options | `has_inbound` | Stripped and replaced | Server-set value always wins |
+
 
 ---
 
@@ -63,7 +70,8 @@ X-Content-Type-Options = "nosniff"
 ### 7. Failure & Security Enforcement
 - Must be present on every HTTP response.
 - Protects JSON endpoints against polyglot and MIME-confusion exploits.
-
+- Missing `X-Content-Type-Options: nosniff` enables MIME confusion attacks where browsers execute scripts disguised as images or text files.
+- Must be set even on API responses that return JSON — intermediary browser fetch requests can be MIME-sniffed if this header is absent.
 ---
 
 ### 8. Protocol Wire Example

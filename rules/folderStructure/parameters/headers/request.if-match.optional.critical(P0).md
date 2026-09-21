@@ -76,7 +76,8 @@ entity-tag = [ "W/" ] DQUOTE 1*( VCHAR ) DQUOTE
 ### 7. Failure & Security Enforcement
 - Enforces OCC on all update operations.
 - Server must return new ETag header in successful response.
-
+- If a request omits `If-Match` on a mutating endpoint that declared it mandatory, reject with HTTP 428 PRECONDITION_REQUIRED.
+- `If-Match: *` (wildcard) MUST be rejected on DELETE — it bypasses ETag-based conflict protection and could delete any version of a resource.
 ---
 
 ### 8. Protocol Wire Example

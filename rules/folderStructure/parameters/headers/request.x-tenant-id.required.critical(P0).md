@@ -73,7 +73,8 @@ x-tenant-id = 3*64( ALPHA / DIGIT / "-" / "_" )
 ### 7. Failure & Security Enforcement
 - Cross-tenant data access is a P0 security incident.
 - Header value must strictly match JWT claims when token is present.
-
+- Cross-tenant data access caused by header mismatch with JWT claim is a P0 security incident — must trigger immediate security alert and audit entry.
+- Tenant ID MUST be used as the primary namespace key for all database queries, cache lookups, and event bus topics — unscoped queries are forbidden.
 ---
 
 ### 8. Protocol Wire Example

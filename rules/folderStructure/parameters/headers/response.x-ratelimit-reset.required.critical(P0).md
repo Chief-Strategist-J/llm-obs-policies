@@ -40,7 +40,11 @@ X-RateLimit-Reset = 10*DIGIT
 
 ### 4. Normative Lifecycle Protocol (IETF RFC 2119)
 
-1. The server MUST declare the exact epoch timestamp in seconds when the quota window refreshes.
+1. The server MUST inject `X-RateLimit-Reset` on every HTTP response with the Unix epoch timestamp (seconds) at which the current window expires.
+2. The reset timestamp MUST be computed from the window start time plus the window duration — it MUST NOT be a relative delta.
+3. The server clock used for this value MUST be NTP-synchronised to avoid client mis-timing on back-off.
+4. On 429 responses, `X-RateLimit-Reset` MUST be consistent with the `Retry-After` header value.
+
 
 ---
 
@@ -48,7 +52,10 @@ X-RateLimit-Reset = 10*DIGIT
 
 | Input Condition | Predicate Evaluation | Output Value | Secondary Effect |
 | :--- | :--- | :--- | :--- |
-| All HTTP responses | `true` | `string(rate_quota.reset_epoch_seconds)` | Inject header |
+| Normal response, window active | `quota.remaining > 0` | `quota.reset_epoch_seconds` | Inject reset timestamp |
+| 429 response, quota exhausted | `quota.remaining <= 0` | `quota.reset_epoch_seconds` | Inject; pair with Retry-After |
+| Server clock not NTP-synced | `!ntp_synced` | Best-effort estimate | Log NTP warning; do not omit header |
+
 
 ---
 
@@ -63,7 +70,8 @@ string(rate_quota.reset_epoch_seconds)
 ### 7. Failure & Security Enforcement
 - Provides exact timestamp when quota refreshes.
 - Paired with Retry-After on 429 errors.
-
+- The reset timestamp MUST use Unix epoch seconds (not milliseconds and not HTTP-date format) for machine-parseable client back-off calculations.
+- On 429 responses, `Retry-After` header seconds value MUST align with `X-RateLimit-Reset - current_epoch` — inconsistency causes client retry storms.
 ---
 
 ### 8. Protocol Wire Example

@@ -73,7 +73,8 @@ version in active_versions
 ### 7. Failure & Security Enforcement
 - Unsupported or retired versions must immediately trigger HTTP 400 UNSUPPORTED_API_VERSION.
 - Deprecated versions must inject Deprecation and Sunset headers into response.
-
+- Version strings MUST be immutable once published — a deployed version identifier must not be silently mapped to a different contract.
+- Clients sending an unsupported version MUST receive HTTP 400 with error code `UNSUPPORTED_API_VERSION` and the list of supported versions.
 ---
 
 ### 8. Protocol Wire Example

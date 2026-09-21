@@ -40,8 +40,11 @@ Retry-After = 1*DIGIT / HTTP-date
 
 ### 4. Normative Lifecycle Protocol (IETF RFC 2119)
 
-1. IF HTTP status is 429 or 503, the server MUST include `Retry-After` header declaring backoff delay in seconds.
-2. Client retry engines MUST NOT retry prior to the elapsed duration.
+1. When returning HTTP 429 Too Many Requests, the server MUST include `Retry-After` specifying the seconds until quota resets.
+2. When returning HTTP 503 Service Unavailable, the server MUST include `Retry-After` to direct clients away from the overloaded instance.
+3. The server MUST prefer seconds-based integer format (delta-seconds) over HTTP-date format for machine-readable back-off.
+4. IF the server cannot determine a precise reset time, it MUST use a safe default of 60 seconds — it MUST NOT omit the header.
+
 
 ---
 
@@ -65,7 +68,8 @@ status_code in [429, 503] && retry_delay != null ? string(retry_delay) : null
 ### 7. Failure & Security Enforcement
 - Must be respected by all SDK retry engines and backoff handlers.
 - Prevents thundering-herd retry storms against overloaded backends.
-
+- Clients MUST NOT retry before the `Retry-After` window expires — repeated violations MUST trigger exponential back-off with jitter on the client side.
+- The server MUST NOT return `Retry-After: 0` on 429 — a zero value signals immediate retry and defeats the rate-limiting mechanism.
 ---
 
 ### 8. Protocol Wire Example
