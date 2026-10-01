@@ -132,6 +132,56 @@ All agents executing codebase searches, AST refactorings, and multi-file migrati
 
 ---
 
+## 🏛️ Functional Algorithm Architecture & Categorized Directory Structure
+
+All algorithms specified in this contract are categorized and executable via dedicated modules under `policies/policy-orchestrator/src/features/search_engine/algos/`:
+
+```
+policies/policy-orchestrator/src/features/search_engine/algos/
+├── search/                               # File discovery, filtering & fast string scanning
+│   ├── search_algo_recursive_walk.py              # Algo 01: DFS recursive walker with depth bounds
+│   ├── search_algo_work_stealing_walker.py        # Algo 02: Parallel work-stealing tree crawler
+│   ├── search_algo_git_aware_walker.py            # Algo 03: Git-aware .gitignore evaluator
+│   ├── search_algo_glob_matcher.py                # Algo 04: Double-star glob regex compiler
+│   ├── search_algo_binary_classifier.py           # Algo 05: Null-byte & UTF-8 binary classifier
+│   ├── search_algo_content_type_prober.py         # Algo 06: Shebang & magic byte file prober
+│   ├── search_algo_size_line_bouncer.py           # Algo 07: Stat-based file size & line bouncer
+│   ├── search_algo_generated_code_classifier.py   # Algo 08: Codegen header signature detector
+│   ├── search_algo_trigram_index.py               # Algo 09: 3-gram positional inverted index
+│   ├── search_algo_simd_memchr.py                 # Algo 10: SIMD fast byte scanner with skip tables
+│   ├── search_algo_aho_corasick.py                # Algo 11: Aho-Corasick multi-pattern automaton
+│   ├── search_algo_lazy_dfa.py                    # Algo 12: ReDoS-safe linear lazy DFA scanner
+│   ├── search_algo_streaming_chunk_scanner.py     # Algo 13: Sliding window chunk scanner with overlap
+│   ├── search_algo_context_snippet_collector.py   # Algo 14: Context snippet collector with line markers
+│   └── search_algo_mmap_scanner.py                # Algo 15: Zero-copy kernel memory-mapped scanner
+│
+├── observability/                        # Codebase AST, symbol scope, dependencies & telemetry
+│   ├── observability_algo_position_span_tracker.py       # Algo 16: Byte offset <-> line/col coordinator
+│   ├── observability_algo_tree_sitter_ast.py             # Algo 17: Multi-language AST parser & visitor
+│   ├── observability_algo_symbol_scope_resolver.py       # Algo 19: Lexical scope & shadow resolver
+│   ├── observability_algo_comment_extractor.py           # Algo 20: Comment extractor & Zero-Inline linter
+│   ├── observability_algo_import_dependency_grapher.py   # Algo 21: Import DAG builder & cycle detector
+│   └── observability_algo_code_outline_generator.py      # Algo 22: Hierarchical symbol outline generator
+│
+└── update/                               # Lossless CST matching, atomic patching & diff engine
+    ├── update_algo_cst_matcher.py                 # Algo 18: Concrete Syntax Tree template matcher
+    ├── update_algo_batch_patcher.py               # Deterministic atomic multi-file patcher with SHA-256
+    └── update_algo_diff_engine.py                 # Unified GNU/Git context diff generator
+```
+
+### Categorized CLI & REST API Contracts
+
+| Category | CLI Command | REST API V1 Endpoint | Core Responsibility |
+|:---|:---|:---|:---|
+| **Search** | `policy-orchestrator algo search --patterns <pats>` | `POST /api/v1/algos/search/scan` | Multi-pattern Aho-Corasick directory scan with ignore rules |
+| **Observability** | `policy-orchestrator algo outline --file <path>` | `POST /api/v1/algos/observability/outline` | Hierarchical symbol tree & markdown outline extraction |
+| **Observability** | `policy-orchestrator algo dependencies --directory <dir>` | `POST /api/v1/algos/observability/dependencies` | Import DAG construction & cycle detection |
+| **Observability** | `policy-orchestrator algo lint-comments --file <path>` | `POST /api/v1/algos/observability/lint-comments` | Zero-Inline-Comment Doctrine compliance audit |
+| **Update** | `policy-orchestrator algo patch --file <path> --find <f> --replace <r>` | `POST /api/v1/algos/update/patch` | Atomic multi-file patching with SHA-256 validation |
+| **Update** | `policy-orchestrator algo diff --file <path> --find <f> --replace <r>` | `POST /api/v1/algos/update/diff` | Unified GNU/Git context diff generation |
+
+---
+
 # PART A: BULK SEARCH
 
 ## A1. Finding files
