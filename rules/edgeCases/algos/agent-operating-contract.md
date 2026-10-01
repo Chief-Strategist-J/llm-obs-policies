@@ -141,11 +141,11 @@ All agents executing codebase searches, AST refactorings, and multi-file migrati
 **Definition:** Visiting every file under a root folder to know what exists.
 
 **How it works:**
-1. Put the root folder on a stack.
-2. Loop: pop a folder and read its entries in one system call, which also returns each entry's type.
-3. For each entry, push folders onto the stack and output files. Skip symlinks, or follow them only while recording each visited (device, inode) pair, so a loop is never entered twice.
-4. Stop when the stack is empty.
-5. A stack gives depth-first order with memory proportional to depth. A queue gives breadth-first order with memory proportional to the widest level.
+1. **Pre-allocated DFS Stack:** Initialize a contiguous LIFO stack with the root directory path and its parent device ID, bounding traversal memory to $O(\text{depth})$ rather than $O(\text{tree width})$.
+2. **Directory-Level Early Pruning:** Prior to issuing any readdir syscall, match the directory name against top-level deny-lists (`.git`, `node_modules`, `dist`, `.env`) and ignore patterns (#3); if matched, immediately skip descending without opening the directory file descriptor.
+3. **Batched Syscall Enumeration (`getdents64` / `scandir`):** Read directory entries in bulk blocks to extract both filename and file type (`d_type` = `DT_DIR`, `DT_REG`, `DT_LNK`) simultaneously in a single syscall, avoiding individual $O(1)$ per-file `lstat()` round-trips.
+4. **Symlink Cycle Protection & Inode Tracking:** For symlinks (`DT_LNK`) or unknown file types (`DT_UNKNOWN`), resolve via `lstat()` and record `(st_dev, st_ino)` in a flat hash set to detect and prune cyclic references in $O(1)$ time. During edit/mutation runs, symlinks are unconditionally skipped.
+5. **Streaming Iterator & Deterministic Output:** Push valid subdirectories onto the stack in reverse lexicographical order (so pop order is alphabetically sorted) and stream matching file entries lazily to the consumer pipeline without buffering entire gigabyte trees in heap memory.
 
 **Agent use:**
 - **Role:** Scout. It's the fallback lister when there's no git repo.
