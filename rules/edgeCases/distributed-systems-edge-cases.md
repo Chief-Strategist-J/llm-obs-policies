@@ -1052,14 +1052,8 @@ Patterns to search for in code review and in configuration. None proves a bug; e
 
 ---
 
-## Closing Note for Volume 3
+## Operational Verification Checklist
 
-The pattern deepens one more level here. The subtle failures are rarely about a single bad line of code or a single misconfigured server. They come from **three kinds of gaps**:
-
-1. **Gaps between what a component believes and what is true** (a stale lease, a stale cache, a wrong clock, an empty list that really meant "failed").
-2. **Gaps between components** (retries against timeouts, autoscaling against connection limits, a flag against a migration, a partner's allowlist against your failover).
-3. **Gaps between what we designed and what we verified** (untested recovery, untested defaults, untested combinations, unmonitored limits).
-
-Closing these gaps is less about cleverness than about habits: write assumptions down, enforce rules where the data lives, distinguish unknown from empty, bound every automated action, measure headroom and age, rehearse recovery, and look at the strange rows in your real data.
-
----
+For the actionable distributed systems, locking, and infrastructure scale review checklist derived from Volume 3, see:
+👉 **[Checklist 03: Distributed Systems & Infrastructure Scale](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/03-distributed-systems-and-infrastructure-checklist.md)**  
+👉 **[Master Engineering Checklist Index](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/00-master-engineering-checklist.md)**

@@ -661,10 +661,9 @@ Irreversible domain actions get gates: preview, limits, staged rollout, approval
 
 ---
 
-## Closing Note for Volume 6
+## Operational Verification Checklist
 
-Volumes 1 to 5 looked for edge cases by **root cause** and by **technology**. This volume shows they also hide in **domain meaning**: what a refund is allowed to be, what "active" means for a subscriber, what a device is allowed to believe while offline, what a feature is allowed to know at prediction time, and what a message is allowed to say once it is sent.
+For the actionable domain-specific review checklist (Payments, SaaS, Mobile Sync, Data/ML, Messaging) derived from Volume 6, see:
+👉 **[Checklist 06: Domain-Specific Systems](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/06-domain-specific-systems-checklist.md)**  
+👉 **[Master Engineering Checklist Index](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/00-master-engineering-checklist.md)**
 
-The same structure repeats. A domain rule lived only in people's heads, so nothing enforced it. A third party's timeline was assumed to be simple. A derived number was trusted as the source. A seam between two teams had no owner. And nothing independent was checking the result. The fixes are also the same: write the rule, enforce it where the data lives, derive instead of mutate, reconcile against something independent, and gate what cannot be undone.
-
----

@@ -924,10 +924,8 @@ When you find one edge case, keep asking until you reach something structural:
 
 ---
 
-## Closing Note for Volume 2
+## Operational Verification Checklist
 
-The pattern across all of these additions is the same as in the first volume, but seen at finer resolution. The details differ (a lock queue, a burst balance, a probe design, an ID high-water mark), yet each one is an instance of a small set of root causes: a belief that was never verified, a rule enforced in the wrong place, a limit nobody watched, a timeline that was simpler on paper than in reality, or a failure that nobody could see.
-
-When you meet a new edge case, resist fixing the instance. Place it in the taxonomy, run the depth ladder in 16.3, search for siblings, and change the structure so the class is gone.
-
----
+For the actionable SDLC and database/architecture review checklist derived from Volume 2, see:
+👉 **[Checklist 02: Architecture, Database & Concurrency Mechanisms](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/02-architecture-database-and-mechanisms-checklist.md)**  
+👉 **[Master Engineering Checklist Index](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/00-master-engineering-checklist.md)**

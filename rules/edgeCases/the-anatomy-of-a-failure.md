@@ -458,10 +458,8 @@ These are design stances that remove categories of edge cases rather than fixing
 
 ---
 
-## Closing Thought
+## Operational Verification Checklist
 
-Surface-level edge-case thinking asks, "What weird inputs could arrive?" Root-cause thinking asks, "What false belief, unenforced rule, invisible limit, or unowned gap is this design standing on?"
-
-There are far fewer root causes than symptoms. A team that learns to recognize about a dozen recurring shapes stops being surprised by edge cases and starts seeing them *before* they arrive, because it is looking at the structure under the input rather than at the input.
-
----
+For the actionable SDLC and design review checklist derived from this root-cause taxonomy, see:
+👉 **[Checklist 01: Root Causes & Failure Anatomy](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/01-root-causes-and-failure-anatomy-checklist.md)**  
+👉 **[Master Engineering Checklist Index](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/00-master-engineering-checklist.md)**

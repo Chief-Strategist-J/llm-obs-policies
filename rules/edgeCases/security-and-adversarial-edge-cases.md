@@ -864,10 +864,9 @@ Regularly scan repositories (including history), images, CI logs, configuration,
 
 ---
 
-## Closing Note for Volume 4
+## Operational Verification Checklist
 
-The earlier volumes found edge cases in how systems fail *by accident*. This one shows the same root causes under pressure from someone who is looking for them: unenforced invariants become exploits, unowned boundaries become breaches, unbounded resources become cost attacks, untested recovery becomes extortion leverage, and invisible failures become months of undetected access.
+For the actionable security, tenant isolation, and cryptographic defense review checklist derived from Volume 4, see:
+👉 **[Checklist 04: Security & Adversarial Defense](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/04-security-and-adversarial-checklist.md)**  
+👉 **[Master Engineering Checklist Index](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/00-master-engineering-checklist.md)**
 
-The defining difference is **intent**. Because an adversary chooses the trigger, structural fixes matter even more than in the accidental case. A patched symptom gets found around within hours. A removed class of flaw (a constraint at the data layer, a separated channel for data and code, a short-lived credential, a deny-by-default policy point) stays fixed.
-
----

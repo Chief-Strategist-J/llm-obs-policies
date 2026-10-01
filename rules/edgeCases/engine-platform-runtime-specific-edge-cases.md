@@ -783,10 +783,9 @@ A reminder that "a database" is not one thing. Verify every cell for your versio
 
 ---
 
-## Closing Note for Volume 5
+## Operational Verification Checklist
 
-The earlier volumes classified failures by **root cause**. This one shows that the same causes hide inside **specific products**: a retention setting is a unit of tolerated outage, a default isolation level is a set of permitted anomalies, an eviction policy is a statement about what data you are willing to lose, and a keep-alive timeout is a contract with another team's configuration that nobody wrote down.
+For the actionable platform, database engine, Kubernetes, and runtime internals review checklist derived from Volume 5, see:
+👉 **[Checklist 05: Engine, Platform & Runtime Deep Internals](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/05-engine-platform-and-runtime-checklist.md)**  
+👉 **[Master Engineering Checklist Index](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/check-list/00-master-engineering-checklist.md)**
 
-The repeating lesson is to **replace folklore with measured facts**. Knowing that a platform *can* behave a certain way is not enough. You need to know whether it *does*, in your version, at your scale, with your clients, and you need to have watched it happen in a safe place first.
-
----
