@@ -138,448 +138,564 @@ All agents executing codebase searches, AST refactorings, and multi-file migrati
 
 ### 1. Recursive directory walk
 
-**Definition:** Visiting every file under a root folder to know what exists.
+**Definition:** Deterministic, depth-first traversal of a directory subtree with $O(\text{depth})$ memory bounds, batched kernel enumeration, and directory-level early pruning.
+
+**Complexity:** Time: $O(N)$ filesystem operations | Space: $O(D)$ memory where $D$ is maximum directory depth ($D \ll N$).
 
 **How it works:**
-1. **Pre-allocated DFS Stack:** Initialize a contiguous LIFO stack with the root directory path and its parent device ID, bounding traversal memory to $O(\text{depth})$ rather than $O(\text{tree width})$.
-2. **Directory-Level Early Pruning:** Prior to issuing any readdir syscall, match the directory name against top-level deny-lists (`.git`, `node_modules`, `dist`, `.env`) and ignore patterns (#3); if matched, immediately skip descending without opening the directory file descriptor.
-3. **Batched Syscall Enumeration (`getdents64` / `scandir`):** Read directory entries in bulk blocks to extract both filename and file type (`d_type` = `DT_DIR`, `DT_REG`, `DT_LNK`) simultaneously in a single syscall, avoiding individual $O(1)$ per-file `lstat()` round-trips.
-4. **Symlink Cycle Protection & Inode Tracking:** For symlinks (`DT_LNK`) or unknown file types (`DT_UNKNOWN`), resolve via `lstat()` and record `(st_dev, st_ino)` in a flat hash set to detect and prune cyclic references in $O(1)$ time. During edit/mutation runs, symlinks are unconditionally skipped.
-5. **Streaming Iterator & Deterministic Output:** Push valid subdirectories onto the stack in reverse lexicographical order (so pop order is alphabetically sorted) and stream matching file entries lazily to the consumer pipeline without buffering entire gigabyte trees in heap memory.
+1. **DFS Stack & Reusable Path Arena:** Allocate a contiguous LIFO stack storing relative path slices and parent file descriptors (`dirfd`). This bounds memory to the maximum tree depth $O(D)$ rather than directory width $O(W)$, preventing heap exhaustion on wide hierarchies.
+2. **Zero-Syscall Pre-Filter & Subtree Pruning:** Prior to opening any directory descriptor, evaluate the directory segment against compiled ignore globs (#4) and deny-lists (`.git`, `node_modules`, `dist`, `.env`). If matched, immediately skip the subtree without issuing `openat()` or reading inodes.
+3. **Descriptor-Relative Bulk Enumeration (`openat` + `getdents64`):** Open directories using `openat(dirfd, name, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)` to eliminate path-resolution overhead and prevent TOCTOU directory swap attacks. Fetch directory entries in bulk 64KB buffers via `getdents64(2)`, reading filename, inode, and file type (`d_type`: `DT_DIR`, `DT_REG`, `DT_LNK`) in single syscalls without per-file `lstat()` calls.
+4. **Cycle-Proof Inode Tracking & Symlink Guard:** For symlinks (`DT_LNK`) or filesystems returning `DT_UNKNOWN`, resolve attributes via `fstatat(dirfd, name, &st, AT_SYMLINK_NOFOLLOW)` and record `(st_dev, st_ino)` in a flat 64-bit hash set to detect loops and cross-device boundaries in $O(1)$. During mutation runs, symlinks are unconditionally skipped.
+5. **Deterministic Reverse Sort & Zero-Allocation Streaming:** Sort discovered directory entries in reverse lexicographical order before pushing onto the LIFO stack (ensuring deterministic A–Z pop order). Stream valid regular files lazily through a bounded channel or iterator to downstream scanners without buffering entire trees in memory.
 
 **Agent use:**
-- **Role:** Scout. It's the fallback lister when there's no git repo.
-- **How:** List once, then pass the list through the filters (ignore rules #3, globs #4, binary #5, generated #8). Hand only the filtered list to search. Skip known heavy folders (`node_modules`, `dist`) at the folder level, so they're never entered.
-- **Rules:** Sort the final list so plans and diffs are reproducible. Record unreadable folders in the report.
-- **Guardrails:** G1. Resolve every path and confirm it's under the root. Never follow symlinks during an edit run.
+- **Role:** Scout. Primary fallback file enumerator in non-git environments or untracked directories.
+- **How:** Stream paths directly through the early filter chain (ignore rules #3, globs #4, binary check #5, generated/vendored filter #8). Heavy directories (`node_modules/`, `dist/`, `.git/`) are pruned at the parent directory descriptor level before entering.
+- **Rules:** Output must be lexicographically sorted to ensure change plans and diffs are 100% reproducible across runs (R8). Unreadable directories (`EACCES`) are logged as structured warnings in the report without aborting the walk.
+- **Guardrails:** G1 (Path allowlist). Resolve canonical paths to guarantee they remain within workspace boundaries. Never follow symlinks targeting paths outside the root during edit runs.
 
 ### 2. Parallel work-stealing walker
 
-**Definition:** A directory walk spread across threads, where idle threads take work from busy ones.
+**Definition:** Multi-threaded directory hierarchy traversal leveraging per-worker lock-free Chase-Lev double-ended queues (deques), non-blocking work stealing for dynamic load balancing, and thread-affinity pinned I/O.
+
+**Complexity:** Time: $O(N / P + T_{\text{steal}})$ where $P$ is worker thread count and $T_{\text{steal}}$ is contention overhead | Space: $O(P \times D)$ where $D$ is maximum tree depth.
 
 **How it works:**
-1. Each thread owns a double-ended queue of folders.
-2. A thread pops from its own end, reads the folder, and pushes subfolders back onto its own end.
-3. When its queue is empty, it steals from the opposite end of another thread's queue. That end holds older, larger folders, so a single steal brings plenty of work.
-4. A shared "active workers" counter detects completion: all queues are empty and no thread is reading.
-5. Output order depends on thread timing.
+1. **Per-Thread Chase-Lev Deque:** Initialize $P = \min(\text{CPUs}, 8)$ worker threads. Each thread owns a circular work-stealing array deque storing unexplored `dirfd` pointers and paths.
+2. **Local LIFO Operations (Cache Locality):** The owner thread pushes and pops directory tasks from its own bottom end ($O(1)$ lock-free atomic load/store with `relaxed` memory ordering). This maintains strict Depth-First Search locality, maximizing VFS inode dentry cache hits and warm directory buffers.
+3. **Global FIFO Stealing (Contention Minimization):** When an idle thread's local deque empties, it selects a victim thread at random and attempts an atomic Compare-And-Swap (`CAS`) steal from the victim's *top* end. Stealing from the top takes the oldest, shallowest directories in the hierarchy, yielding the largest unexplored subtrees per steal attempt.
+4. **Non-Blocking Termination Detection:** Maintain an atomic active-worker counter and global epoch ticket. A worker transitions to a parking state (`futex` wait) only after completing a round-robin scan of all peers with zero stealable tasks. Termination triggers when active workers $= 0$ and all deques are empty.
+5. **Deterministic Sort Barrier:** Because multi-threaded discovery emits paths in non-deterministic order, results pass through a thread-local buffer pool and are merged into a global radix/merge sort pass before downstream planner ingestion.
 
 **Agent use:**
-- **Role:** Scout, for very large trees.
-- **How:** The agent gets this by calling fast listing tools (ripgrep's file listing, fd). It builds its own only inside an indexer.
-- **Rules:** Always sort the output before planning, because parallel order is random.
-- **Guardrails:** Cap the thread count. Too many threads overload network filesystems and container I/O.
+- **Role:** Scout (High-throughput parallel tree discovery on multi-core systems).
+- **How:** Invoked via high-performance tools (`ripgrep --files`, `fd -j<P>`) or custom parallel traversers for repository-wide inventory indexing.
+- **Rules:** Output must be passed through a strict lexicographical sorting barrier before any planning or diff generation (R8, R4).
+- **Guardrails:** G3 (Cap thread count to $\min(8, \text{CPUs})$ to prevent kernel context thrashing, page cache lock contention, and I/O buffer exhaustion).
 
 ### 3. .gitignore matching
 
-**Definition:** Deciding whether a path is excluded by git's layered ignore rules.
+**Definition:** Hierarchical ignore rule resolution evaluating layered, glob-based pattern sets across directory boundaries with negative re-inclusion override semantics and parent-level subtree short-circuiting.
+
+**Complexity:** Time: $O(S \times K)$ where $S$ is path segments and $K$ is active rules per directory scope | Space: $O(R)$ where $R$ is total compiled rule nodes in the prefix trie.
 
 **How it works:**
-1. Rules come from every folder's `.gitignore`, `.git/info/exclude`, and the user's global excludes.
-2. While descending, each folder's rules are stacked on its parent's rules.
-3. A path is tested from the deepest rules to the shallowest, and within one file the last matching rule wins.
-4. `!pattern` re-includes a path, unless a parent folder is already excluded; git never enters excluded folders, so their children can't be re-included.
-5. A trailing `/` means "folders only". A `/` elsewhere anchors the pattern to that `.gitignore`'s folder.
+1. **Hierarchical Stack of Rule Scopes:** As the traversal descends into subdirectories, parse local `.gitignore` files, `.git/info/exclude`, and global gitignore configurations. Push the compiled pattern table onto an active directory rule stack.
+2. **Bottom-Up Rule Evaluation:** Test path candidates starting from the deepest active `.gitignore` scope upwards to root. Within a single `.gitignore` file, evaluate patterns from bottom to top; the last matching rule takes precedence.
+3. **Negative Re-inclusion (`!pattern`) Semantics:** A pattern starting with `!` inverts the match, re-including previously ignored paths. **Critical invariant:** If a parent directory was matched as ignored, git never traverses into it; child files inside an excluded parent directory can *never* be re-included via `!pattern`.
+4. **Directory Anchor & Trailing Slash Optimization:** Patterns containing an internal slash (`/`) are anchored relative to the directory containing that `.gitignore`. Patterns ending in `/` only match directory inodes (`DT_DIR`), skipping regular file tests via early bitmasking.
+5. **Subtree Short-Circuit Cache:** Cache evaluated directory decisions in a radix trie. Once a directory is classified as permanently ignored (and contains no possible negative overrides), prune the entire subtree immediately at the kernel enumeration layer.
 
 **Agent use:**
-- **Role:** Scout (relevance filter) and Guard (G2).
-- **How:** The most accurate method is to ask git itself which paths are ignored, by sending the whole list in one call. A library matcher is faster but only knows the ignore files you give it.
-- **Rules:** If a planned target is ignored, assume it's generated. Edit its source and regenerate (#8).
-- **Guardrails:** "Ignore the ignore rules" is allowed for read-only investigation, never for a write step.
+- **Role:** Scout (Relevance filtering) and Guard (G2 Deny-list enforcement).
+- **How:** Execute `git check-ignore --stdin -z` in single batched process calls for 100% fidelity with git's native C implementation, or evaluate compiled rule sets in-memory for zero-process overhead.
+- **Rules:** If a planned edit target is git-ignored, treat it as a build artifact/generated file. Route edits to the generator source rather than mutating the ignored file (R1, R8).
+- **Guardrails:** G2 (Strict Deny-List). Ignoring ignore rules is strictly forbidden during write/edit operations.
 
 ### 4. Glob set
 
-**Definition:** Many glob patterns compiled into one matcher that tests a path against all of them at once.
+**Definition:** Multi-pattern glob matcher compiling heterogeneous wildcard expressions (`*`, `**`, `?`, `[...]`) into a single-pass hybrid engine combining exact hashsets, trie lookups, and deterministic finite automata (DFA).
+
+**Complexity:** Time: $O(M)$ where $M$ is path string length (independent of number of glob patterns $P$) | Space: $O(\Sigma \times |\text{DFA states}|)$.
 
 **How it works:**
-1. Classify each glob: pure extension (`*.py`) goes into a hash set; exact filename into another hash set.
-2. Prefix and suffix globs go into an Aho-Corasick automaton (#24).
-3. The rest are translated to regexes and combined into one alternation.
-4. To test a path: one extension lookup, one name lookup, one regex run.
-5. The union of all hits is the result.
+1. **Pattern Partitioning & Classification:** Inspect incoming globs and segment into four disjoint execution tiers:
+   - *Tier 1 (Exact Names):* Literal names (`package.json`, `Makefile`) $\to$ $O(1)$ Robin Hood hash set.
+   - *Tier 2 (Pure Extensions):* Extension matches (`*.ts`, `*.go`) $\to$ $O(1)$ suffix hash set.
+   - *Tier 3 (Prefix/Suffix Literals):* Prefix/suffix patterns (`test_*.py`, `*controller.go`) $\to$ Aho-Corasick automaton (#24).
+   - *Tier 4 (Complex Wildcards & `**` Globstars):* Multi-segment recursive globs (`src/**/api/*.{ts,js}`) $\to$ Single combined Thompson NFA $\to$ Lazy DFA.
+2. **Normalized Path Traversal:** Strip leading `./`, normalize path separators to `/`, and split paths into zero-allocation string slices (`&str` / `std::string_view`).
+3. **Single-Pass Cascaded Evaluation:** Test candidate paths against Tier 1 and Tier 2 hash lookups in $O(1)$. If no match, run Aho-Corasick suffix search, and finally step the combined DFA state machine across the path slice.
+4. **Bitset Match Aggregation:** The unified DFA returns a bitset vector representing all matching glob pattern IDs simultaneously in a single scan.
 
 **Agent use:**
-- **Role:** Scout (scoping).
-- **How:** The Planner writes the scope as include and exclude globs, for example "all `.ts` and `.tsx` under `src/`, excluding tests and `__generated__`". The Scout compiles the set once and applies it to every path.
-- **Rules:** Write excludes as explicitly as includes. Log the in-scope file count as the first R4 sanity check.
-- **Guardrails:** Some glob libraries let `*` cross `/`. Test the globs on sample paths before a bulk run.
+- **Role:** Scout (Scoping and search domain restriction).
+- **How:** The Planner converts user search intents into unified include/exclude glob sets (e.g., include: `["src/**/*.ts"]`, exclude: `["**/*.test.ts", "**/__mocks__/**"]`).
+- **Rules:** Include and exclude glob counts and matched file totals must be reported as the primary R4/R5 sanity validation metric prior to execution.
+- **Guardrails:** G1 (Path allowlist). Ensure `**` patterns cannot escape the repository root boundary via directory traversal or unnormalized path segments.
 
 ### 5. Binary file detection
 
-**Definition:** Deciding whether a file is text that's safe to search and edit.
+**Definition:** Vectorized statistical content classification heuristic scanning initial byte blocks to distinguish plain UTF-8/ASCII source code from compiled binaries, packed assets, and compressed archives.
+
+**Complexity:** Time: $O(B)$ where $B \le 8192\text{ bytes}$ (executed in $\sim 30\text{ nanoseconds}$ via SIMD) | Space: $O(1)$ memory.
 
 **How it works:**
-1. Read the first ~8 KB.
-2. Look for a NUL (`0x00`) byte. Text essentially never has one; binaries almost always do.
-3. If a NUL is found, the file is binary.
-4. Optionally, try decoding as UTF-8. If that fails, and the failure isn't just a multibyte character cut at the block edge, treat the file as binary.
-5. Some tools also stop mid-file when a NUL appears later.
+1. **8KB Prefix Header Read:** Read the first $8192$ bytes ($8\text{ KB}$) of the target file into an aligned buffer without allocating memory for the remaining file body.
+2. **SIMD Vectorized NUL (`0x00`) Search:** Execute 256-bit AVX2 vector instructions (`_mm256_cmpeq_epi8` against zero) across the 8KB buffer. If any NUL byte is detected, immediately flag the file as binary:
+   $$\text{has\_null} = \text{movemask}(\text{vcmpeq}(V_{\text{chunk}}, V_{\text{zero}})) \ne 0$$
+3. **UTF-8 DFA Validation:** If no NUL byte is found, pass the buffer through a table-driven UTF-8 state machine. If an invalid UTF-8 byte sequence or truncated multi-byte codepoint occurs (excluding end-of-buffer boundary split), classify as non-text.
+4. **Control Character Frequency Analysis:** Count ASCII control characters (bytes in range `0x01`–`0x08`, `0x0E`–`0x1F`). If control characters exceed $0.5\%$ of total sampled bytes, classify as binary (heuristic for binary formats lacking NULs in headers).
+5. **Mid-Stream NUL Abort:** During streaming scans of text files, if a NUL byte is encountered at any subsequent block boundary, immediately terminate reading and flag the stream as corrupt/binary.
 
 **Agent use:**
-- **Role:** Guard. It runs before any content enters the model, and before any write.
-- **How:** Report binary hits as "matched, content skipped". Never load them into context.
-- **Rules:** Binary files are never edited with text tools.
-- **Guardrails:** The Editor re-checks this immediately before writing (defense in depth).
+- **Role:** Guard (G2/G3 Enforcement, prevents binary token corruption).
+- **How:** Scout runs binary detection before streaming any file content to LLM context; Editor executes an independent binary sanity check before applying any text mutation.
+- **Rules:** Binary files must never be ingested as LLM context, never parsed by text tools, and never modified via text replacement (R7).
+- **Guardrails:** G2 (Strict Deny-List). Binary hits are recorded in the audit log as "matched, binary content skipped".
 
 ### 6. Language detection
 
-**Definition:** Determining which programming language a file is in.
+**Definition:** Multi-stage hierarchical classifier identifying programming language syntax and parser targets via exact filename matching, file extensions, interpreter shebangs, editor modelines, and statistical token frequencies.
+
+**Complexity:** Time: $O(1)$ for extension/name lookup; $O(L)$ for shebang/modeline scan where $L \le 256\text{ bytes}$ | Space: $O(1)$.
 
 **How it works:**
-1. Exact filename (`Dockerfile`, `Makefile`, `BUILD`).
-2. Extension map (`.go` is Go, `.tsx` is TSX).
-3. Shebang on the first line (`#!/usr/bin/env python3`).
-4. Editor modelines (`vim: ft=ruby`).
-5. For ambiguous extensions (`.h`, `.m`), a naive Bayes classifier scores the file's tokens against each candidate language.
+1. **Stage 1 (Exact Filename Hashmap):** Check filename against an $O(1)$ static hash table for standard build/config files (`Dockerfile`, `Makefile`, `Gemfile`, `Cargo.lock`, `BUILD.bazel`, `CMakeLists.txt`).
+2. **Stage 2 (Extension Disambiguation Map):** Check file extension (`.go` $\to$ Go, `.rs` $\to$ Rust, `.tsx` $\to$ TypeScript React). For unambiguous extensions, return immediately.
+3. **Stage 3 (Shebang & Modeline Parser):** For extensionless scripts or ambiguous extensions (`.pl`, `.py`, `.sh`), inspect line 1 for shebang patterns (`^#!/(usr/)?bin/(env\s+)?([a-zA-Z0-9_-]+)`) and inspect the first/last 5 lines for editor modelines (`vim:\s*set\s+ft=([a-zA-Z0-9_-]+):` or `-\*-\s*mode:\s*(\w+)\s*-\*-`).
+4. **Stage 4 (Naive Bayes Token Classifier):** For polysemic extensions (e.g., `.h` for C vs C++, `.m` for Objective-C vs MATLAB), tokenize the first 1KB of code into an n-gram histogram and evaluate log-likelihood scores against pre-trained language model vectors:
+   $$P(L \mid \mathbf{w}) \propto P(L) \prod_{i=1}^n P(w_i \mid L)$$
+5. **Dispatcher Routing:** Output canonical language identifier string (`"typescript"`, `"go"`, `"python"`) to trigger language-specific CST/AST codemod engines.
 
 **Agent use:**
-- **Role:** Planner. It routes each file to the right parser and codemod tool.
-- **How:** Group in-scope files by language, then route each group to its engine (LibCST for Python, ts-morph for TypeScript, OpenRewrite for Java, and so on).
-- **Rules:** Unknown language means no structural edit: text edit plus human review, or skip.
-- **Guardrails:** Log counts per language. "0 TypeScript files" in a TS repo means the detector broke, not that the repo is empty.
+- **Role:** Planner (Semantic routing and AST tool selection).
+- **How:** Partition the target file manifest by language ID; route Python files to LibCST, TypeScript to `ts-morph` / Biome, Go to `golang.org/x/tools/go/analysis`.
+- **Rules:** Files with unrecognized language IDs fall back to token-precise text replacements with mandatory dry-run diff review (R6, R8).
+- **Guardrails:** G3 (Safety Limits). If an expected primary language exhibits 0 detected files, halt and flag configuration failure.
 
 ### 7. git ls-files (index enumeration)
 
-**Definition:** Listing files from git's index instead of walking the disk.
+**Definition:** Direct binary parsing or CLI extraction of Git's index staging tree (`.git/index`), bypassing filesystem directory traversal to obtain cached, tracked, and modified file manifests in near-zero time.
+
+**Complexity:** Time: $O(K)$ where $K$ is number of tracked files in the index ($< 5\text{ms}$ for $100{,}000$ files) | Space: $O(K)$ in-memory path index.
 
 **How it works:**
-1. Git keeps `.git/index`: a sorted list of tracked paths, each with its blob hash and file metadata.
-2. Listing reads that one file, with no folder traversal.
-3. Untracked and ignored files are excluded by design.
-4. Variants list modified files, untracked-but-not-ignored files, or files with their blob hashes.
+1. **Index Binary Format (DIRC):** The Git index file (`.git/index`) contains a 12-byte header (`DIRC`, version 2/3/4, entry count) followed by sorted index entries containing `stat` caches (`ctime`, `mtime`, `dev`, `ino`, `mode`, `uid`, `gid`, `file_size`), SHA-1/SHA-256 object hashes, flags, and path strings.
+2. **Prefix-Compressed Traversal (Index v4):** For version 4 indexes, paths are prefix-compressed (storing byte offset of shared prefix with prior entry), enabling high-density sequential reading with zero allocations.
+3. **Status Flag Filtering:**
+   - `git ls-files --cached`: Extract all cleanly tracked files.
+   - `git ls-files --modified`: Compare index `mtime`/`size` against filesystem `stat` to list modified files in $O(1)$ per file.
+   - `git ls-files --others --exclude-standard`: List untracked files respecting all ignore rules.
+   - `git ls-files --stage`: Retrieve object mode, 160-bit SHA-1 blob hash, and merge conflict stage (0–3).
+4. **Clean-Tree Precondition Verification:** Execute index hash comparisons to verify that no uncommitted modifications exist in the working directory before initiating bulk transformations.
 
 **Agent use:**
-- **Role:** Scout (primary file source) and Guard (clean-tree check).
-- **How:** Scope equals the tracked files. Before applying a bulk edit, check that nothing is modified or untracked, so the agent never mixes its edits with the user's unsaved work.
-- **Rules:** Only tracked files are edited, unless the plan explicitly creates new files.
-- **Guardrails:** Run the clean-tree check right before apply, not only at plan time.
+- **Role:** Scout (Primary repository file discovery) and Guard (Clean-tree and rollback verification).
+- **How:** Issue `git ls-files -z` (NUL-delimited output) to safely handle paths containing spaces, newlines, or Unicode characters.
+- **Rules:** The working tree must be proven clean (`git status --porcelain` is empty) before proposing multi-file edits (R1, R8).
+- **Guardrails:** G4 (Clean-Tree & Worktrees). Bulk modifications are restricted to isolated worktrees or dedicated git branches.
 
 ### 8. Generated and vendored file filtering
 
-**Definition:** Excluding files produced by tools or copied from third parties.
+**Definition:** Multi-signal weighted classification pipeline identifying machine-generated code, vendored dependencies, minified bundles, and third-party artifacts to prevent erroneous manual edits to derived assets.
+
+**Complexity:** Time: $O(1)$ for path rules; $O(C)$ for header scan where $C \le 4096\text{ bytes}$ | Space: $O(1)$.
 
 **How it works:**
-1. Path rules: `vendor/`, `third_party/`, `dist/`, `build/`, `node_modules/`, `__generated__/`.
-2. Header markers in the first few KB: "Code generated … DO NOT EDIT", "@generated".
-3. Attributes in `.gitattributes` that mark files as generated or vendored.
-4. Shape heuristics: a very large size, or very long lines (a sign of minified code).
-5. Any one signal excludes the file.
+1. **Path-Based Segment Deny-List:** Evaluate path against canonical vendored and generated directory patterns: `node_modules/`, `vendor/`, `third_party/`, `dist/`, `build/`, `out/`, `target/`, `__generated__/`, `.next/`, `.nuxt/`.
+2. **Header Comment Marker Scanning:** Read the first 4096 bytes of the file and match against case-insensitive generator signature regular expressions:
+   - `^.*(code generated by|generated by|do not edit|autogenerated|auto-generated).*$`
+   - `@generated` (Facebook/Meta standard)
+   - `<!-- GENERATED CODE - DO NOT MODIFY -->`
+3. **Gitattributes Linguist Metadata:** Check `.gitattributes` for explicit linguistic markers:
+   `*.min.js linguist-generated=true` or `schema.ts -linguist-vendored`.
+4. **Geometric & Minification Heuristics:**
+   - *Line Length Ratio:* Average line length $> 500$ characters or any single line $> 2000$ characters without newlines indicates minified/bundled code.
+   - *Entropy Check:* Excessive token density without whitespace indicates packed/obfuscated binaries.
+5. **Source-to-Artifact Mapping & Redirection:** If a match occurs within a generated file, trace back to the authoritative source schema (e.g., Protobuf `.proto`, GraphQL `.graphql`, OpenAPI `openapi.yaml`, Prisma `schema.prisma`, or ORM definitions).
 
 **Agent use:**
-- **Role:** Guard (G2) and Planner (redirect).
-- **How:** When a match lands in a generated file, the Planner traces it to the source (`.proto`, OpenAPI spec, GraphQL schema, template), plans the edit there, and adds a "run codegen" step.
-- **Rules:** Every generated match is either "source edit plus regenerate" or "skip, with a reason".
-- **Guardrails:** The Verifier runs codegen after editing and fails the run if it produces unexpected changes.
+- **Role:** Guard (G2 Deny-list) and Planner (Source-level mutation redirection).
+- **How:** When a target symbol is located inside a generated file, the Planner redirects the mutation to the upstream generator template/schema and appends a `build:codegen` task to the verification step.
+- **Rules:** Never edit a generated file directly; always mutate the authoritative generator source (R1, R8).
+- **Guardrails:** G2/G3. Direct edits to vendored or generated code will fail the Verifier gate and trigger automatic rollback.
+
+---
 
 ## A2. Fast byte scanning
 
 ### 9. memchr (SIMD single-byte search)
 
-**Definition:** Finding the next occurrence of one byte value in a buffer at very high speed.
+**Definition:** Hardware-vectorized single-byte pattern search utilizing AVX-512, AVX2, or ARM NEON vector instructions to scan memory buffers at memory-bus saturating speeds ($> 30\text{ GB/s}$).
+
+**Complexity:** Time: $O(N / W)$ where $W \in \{16, 32, 64\}$ is vector register byte width | Space: $O(1)$ register space.
 
 **How it works:**
-1. Fill a 32-byte vector register with copies of the target byte.
-2. Load 32 bytes of text.
-3. Compare all 32 lanes in one instruction. Matching lanes become all ones.
-4. Collapse the result into a 32-bit mask. If it's zero, move ahead 32 bytes.
-5. If it's nonzero, count the trailing zeros to get the match offset.
-6. Leftover bytes at the start and end are handled separately.
+1. **Vector Register Broadcast:** Broadcast the target byte $C$ into every 8-bit lane of a 256-bit vector register $V_{\text{target}}$ using `_mm256_set1_epi8(C)` (or 512-bit `_mm512_set1_epi8` on AVX-512).
+2. **Page-Boundary Safe Initial Alignment:** Align the initial pointer to a 32-byte memory boundary to prevent cross-page memory faults (`SIGSEGV`). Unaligned leading bytes are processed via a scalar fallback or aligned page-clamped load.
+3. **Vector Comparison Loop:** In the unrolled inner loop, load 32 bytes of buffer into $V_{\text{data}}$ via `_mm256_loadu_si256`:
+   $$V_{\text{match}} = \text{\_mm256\_cmpeq\_epi8}(V_{\text{data}}, V_{\text{target}})$$
+4. **Bitmask Extraction & Trailing Zero Count:** Extract the 32-bit lane comparison result into a scalar integer mask via `_mm256_movemask_epi8(V_{\text{match}})`.
+   - If `mask == 0`, advance pointer by 32 bytes and continue.
+   - If `mask != 0`, compute the exact byte offset using hardware Count Trailing Zeros (`_tzcnt_u32(mask)` or `__builtin_ctz`).
+5. **Pointer Advance:** Add the trailing zero count to the base pointer to obtain the exact match address with zero false positives.
 
 **Agent use:**
-- **Role:** Scout (the inner loop of every search).
-- **How:** The agent never hand-writes this. It uses the built-in fast find and count functions of its language or tools, instead of looping over characters.
-- **Rules:** Do bulk scanning in native or library functions, never in interpreted per-character loops.
-- **Guardrails:** Search raw bytes, not decoded text, so offsets map exactly to file positions for editing.
+- **Role:** Scout (Fundamental building block of all regex, literal, and newline scanners).
+- **How:** The agent relies on optimized native runtimes (Rust `memchr`, Go `bytes.IndexByte`, C `memchr`) rather than user-space byte iteration loops.
+- **Rules:** High-volume content scanning must always execute over raw byte slices, preserving byte offsets for downstream multi-replace engines (R7).
+- **Guardrails:** Ensure raw byte offsets are mapped cleanly to Unicode codepoint boundaries before executing UTF-8 slice transformations.
 
 ### 10. SWAR (SIMD within a register)
 
-**Definition:** Testing 8 bytes at once with ordinary 64-bit integer arithmetic.
+**Definition:** Portable vectorization technique executing parallel multi-byte comparisons across 64-bit integer registers using bitwise arithmetic, without relying on hardware-specific SIMD instruction sets.
+
+**Complexity:** Time: $O(N / 8)$ processing 8 bytes per 64-bit CPU cycle | Space: $O(1)$ scalar registers.
 
 **How it works:**
-1. Read 8 bytes as one 64-bit number.
-2. XOR it with the target byte repeated 8 times, so matching bytes become zero.
-3. Apply a zero-byte bit trick: subtract `0x01` from every byte, AND with the inverted value, and keep only the high bits. The high bit is set for every byte that was zero.
-4. Nonzero result means a match. The lowest flagged byte is exact; higher ones can be false alarms caused by borrows.
+1. **64-Bit Word Load:** Load 8 consecutive bytes from the buffer into a 64-bit unsigned integer $V$ (`uint64_t`).
+2. **Byte-Broadcasting XOR:** XOR the loaded word $V$ with a 64-bit mask containing the target byte $C$ repeated across all 8 bytes ($M = C \times \text{0x0101010101010101ULL}$):
+   $$X = V \oplus M$$
+   Matching byte lanes evaluate to `0x00` in $X$.
+3. **Zero-Byte Detection Idiom:** Execute Alan Mycroft's zero-byte bitwise subtraction trick:
+   $$R = (X - \text{0x0101010101010101ULL}) \ \& \ (\sim X) \ \& \ \text{0x8080808080808080ULL}$$
+   The high bit (`0x80`) of any 8-bit lane in $R$ is set if and only if the corresponding byte in $X$ was `0x00`.
+4. **Match Position Extraction:** If $R \ne 0$, determine the least significant matching byte index via `__builtin_ctzll(R) >> 3` (on Little-Endian architectures).
+5. **Scalar Boundary Handling:** Process remaining buffer bytes ($< 8\text{ bytes}$) with scalar byte comparisons.
 
 **Agent use:**
-- **Role:** Scout, in constrained runtimes (WASM, embedded) without SIMD.
-- **How:** Mostly background knowledge. An agent shipping its own scanner uses it as the portable fallback.
-- **Rules:** Trust only the lowest flagged byte, or verify each flagged byte.
-- **Guardrails:** Prefer the platform's own optimized search over hand-rolled tricks.
+- **Role:** Scout (Portable fallback scanner in resource-constrained, WebAssembly, or embedded agent runtimes where SIMD is unavailable).
+- **How:** Employed inside custom zero-dependency scanning scripts and pure-Python/pure-WASM search kernels.
+- **Rules:** Verify match candidates against byte masks to avoid potential false-positive borrow propagation on unaligned integer boundaries.
+- **Guardrails:** G3. Prefer native platform SIMD intrinsics over SWAR whenever compiling on x86_64 / aarch64 targets.
 
 ### 11. Rare-byte heuristic
 
-**Definition:** Scanning first for the needle's least common byte, then verifying the full needle.
+**Definition:** Frequency-weighted search optimization that queries the rarest byte in a target pattern first, skipping high-density common characters and minimizing verification candidate false alarms.
+
+**Complexity:** Time: Average $O(N / \text{skip\_distance})$ where $\text{skip\_distance} \gg 1$ | Space: $O(1)$ static frequency table.
 
 **How it works:**
-1. Keep a table of how often each byte value appears in typical source code.
-2. Pick the needle's rarest byte and remember its position k inside the needle.
-3. Jump through the text from one occurrence of that byte to the next, using memchr.
-4. At each hit, check whether the full needle starts k bytes earlier.
-5. Rare bytes produce few candidates, so most of the text is skipped.
+1. **Static Byte Frequency Table:** Maintain a static 256-entry distribution table recording byte frequencies derived from large-scale source code corpora (ASCII characters `e`, `t`, `a`, `\n`, space have high frequencies $> 5\%$; bytes `\0`, `~`, `|`, `^`, `\x7f`, rare Unicode prefix bytes have frequencies $< 0.01\%$).
+2. **Rarest Needle Byte Selection:** Given needle string $P$ of length $M$, iterate through $P$ and find byte $P[k]$ ($0 \le k < M$) exhibiting the absolute minimum global frequency score.
+3. **High-Speed memchr Skipping:** Use hardware `memchr` (#9) to scan the search buffer exclusively for occurrences of the rare byte $P[k]$.
+4. **Candidate Verification Window:** When `memchr` locates an occurrence of $P[k]$ at buffer offset $p$, inspect candidate slice at offset $(p - k)$:
+   - Verify boundary condition $p - k \ge 0$ and $p - k + M \le N$.
+   - Check if $\text{buffer}[(p - k) \dots (p - k + M - 1)] == P$ via SIMD vector comparison.
+5. **Average Skip Distance:** Because $P[k]$ appears rarely in source text, the average skip distance between candidate evaluations approaches $\mathbb{E}[\Delta] = 1 / P(\text{rare\_byte})$, yielding near-maximal search throughput.
 
 **Agent use:**
-- **Role:** Scout (query design).
-- **How:** The practical lesson is to start with the most distinctive token. `parseInvoiceV2(` is fast and precise; `parse(` is slow and noisy.
-- **Rules:** The Planner starts narrow and widens only when the count is lower than expected.
-- **Guardrails:** If a query exceeds the result cap, refine it rather than raising the cap (R5).
+- **Role:** Scout (Query planner and search string optimizer).
+- **How:** When constructing search queries for multi-token symbols, the Planner anchors searches on the most distinct token (e.g., searching for `OnReconcileTransactionPayload` instead of `reconcile`).
+- **Rules:** The Scout must refuse broad queries containing only high-frequency tokens without scoping globs (R5).
+- **Guardrails:** G3. If a search query yields $> 1000$ candidate false alarms, the search kernel must dynamically adapt by selecting a secondary rare byte pair.
 
 ### 12. Teddy (SIMD multi-literal search)
 
-**Definition:** A SIMD prefilter that finds candidates for up to about 64 literals in one pass.
+**Definition:** SIMD-accelerated multi-pattern prefilter algorithm (derived from Hyperscan/Vectorscan) that searches for up to 64 short literal patterns simultaneously in a single linear pass using vector shuffle lookup tables.
+
+**Complexity:** Time: $O(N)$ single-pass vector throughput ($> 15\text{ GB/s}$) | Space: $O(B)$ where $B \le 64$ patterns.
 
 **How it works:**
-1. Group the literals into 8–16 buckets.
-2. Split each of their first 1–3 bytes into low and high nibbles.
-3. Build tables mapping each nibble value to a bitmask of the buckets that accept it.
-4. One shuffle instruction looks up 16–32 text bytes at once. The low-nibble and high-nibble masks are ANDed.
-5. Nonzero lanes are candidates, verified only against their bucket's literals.
+1. **Pattern Bucket Partitioning:** Group up to 64 literal patterns into 8 or 16 buckets based on matching prefixes of length $K \in \{1, 2, 3, 4\}$ bytes.
+2. **Nibble Lookup Table (LUT) Construction:** Split each pattern prefix byte into low nibble (bits 0–3) and high nibble (bits 4–7). Populate two 16-entry 128-bit shuffle lookup tables (`LUT_low`, `LUT_high`) where each bit in an entry represents bucket membership.
+3. **SIMD Vector Shuffle (`pshufb` / `tbl`):** For each 16/32-byte chunk of input text:
+   - Extract low and high nibbles.
+   - Use `_mm_shuffle_epi8` / `_mm256_shuffle_epi8` to perform parallel 16-way table lookups for all input bytes simultaneously:
+     $$V_{\text{res}} = \text{\_mm\_shuffle\_epi8}(\text{LUT\_low}, V_{\text{low}}) \ \& \ \text{\_mm\_shuffle\_epi8}(\text{LUT\_high}, V_{\text{high}})$$
+4. **Candidate Bitmask Extraction:** Nonzero bits in $V_{\text{res}}$ pinpoint exact candidate match locations and indicate which bucket of literals must be verified.
+5. **Verification Dispatch:** For confirmed candidate offsets, execute exact short-string equality checks against the specific bucket's literal strings.
 
 **Agent use:**
-- **Role:** Scout (searching for many names in one sweep).
-- **How:** Send all old API names in one fixed-string search call with structured output. The Planner groups hits by literal, so each name maps to its locations and its replacement.
-- **Rules:** Use fixed-string mode for plain names, so `.` and `(` aren't read as regex. One call, not one call per name.
-- **Guardrails:** If one literal explodes in hit count, check it isn't a substring of common words (`get` inside `target`).
+- **Role:** Scout (Multi-symbol discovery and batch identifier scanning).
+- **How:** When refactoring multiple deprecated API symbols simultaneously, compile all target identifiers into a single Teddy search pass rather than executing serial per-symbol regexes.
+- **Rules:** All literals must be searched in fixed-string literal mode to prevent regex metacharacter interpretation (R1, R4).
+- **Guardrails:** G3. Cap Teddy pattern sets to $\le 64$ concurrent literals; larger sets must be partitioned into sequential Teddy batches or routed to Aho-Corasick (#24).
 
 ### 13. Lazy line splitting
 
-**Definition:** Searching the whole buffer at once and locating line boundaries only around matches.
+**Definition:** Memory-efficient scanning paradigm that processes entire files as monolithic byte buffers and resolves line boundaries and column coordinates lazily only around confirmed match offsets.
+
+**Complexity:** Time: $O(N + M_{\text{hits}} \times L_{\text{avg}})$ where $L_{\text{avg}}$ is line length | Space: $O(1)$ auxiliary memory (zero per-line allocations).
 
 **How it works:**
-1. Treat the file as one byte buffer.
-2. Run the matcher across the whole buffer, not line by line.
-3. On a match, scan backward to the previous newline (line start) and forward to the next one (line end).
-4. Return the line plus the exact match offsets.
-5. Cost becomes roughly the bytes scanned plus the matches, with no per-line overhead.
+1. **Monolithic Buffer Processing:** Map or read the target file into a single contiguous byte slice $\text{buffer}[0 \dots N-1]$, bypassing line-by-line `splitlines()` or `bufio.Scanner` string allocations.
+2. **Raw Match Offset Discovery:** The scanning engine operates directly over the byte slice, returning absolute byte match offsets $[p_{\text{start}}, p_{\text{end}})$.
+3. **Bidirectional Newline Scan:** Upon discovering a match at $[p_{\text{start}}, p_{\text{end}})$:
+   - *Line Start:* Scan backwards from $p_{\text{start}}$ using `memrchr` to locate the preceding `\n` (or index 0 if on line 1). Set $\text{line\_start} = \text{idx} + 1$.
+   - *Line End:* Scan forwards from $p_{\text{end}}$ using `memchr` to locate the next `\n` (or index $N$ if at EOF). Set $\text{line\_end} = \text{idx}$.
+4. **Line Snippet Extraction:** Extract the slice $\text{buffer}[\text{line\_start} \dots \text{line\_end}]$ without creating intermediate copies.
+5. **Exact Match Coordinates:** Construct the structured match record with byte bounds $[p_{\text{start}}, p_{\text{end}})$, line bounds $[\text{line\_start}, \text{line\_end}]$, and lazy line index (#14).
 
 **Agent use:**
-- **Role:** Scout, feeding the Editor.
-- **How:** Gives exact byte ranges, which precise edits need, and makes multiline matches possible, such as a call broken across three lines.
-- **Rules:** Store byte ranges, not just line numbers. Line numbers shift after edits; ranges can be corrected (#120).
-- **Guardrails:** Bound multiline wildcards. Reject matches longer than a set size.
+- **Role:** Scout (Feeding precise coordinate records to the Editor).
+- **How:** Generates exact byte-range anchor payloads required by `replace_file_content` and `multi_replace_file_content`. Enables multiline regex matching spanning multiple physical lines.
+- **Rules:** Store and pass exact byte ranges alongside line numbers. Byte ranges remain stable across line numbering discrepancies (R7).
+- **Guardrails:** G3. Set a hard maximum cap on multiline matches ($L \le 64\text{ KB}$); abort if a regex runaway match spans unbounded buffer blocks.
 
 ### 14. Line counting with popcount
 
-**Definition:** Computing a match's line number cheaply, only when needed.
+**Definition:** High-performance line number resolution algorithm utilizing SIMD vector comparisons and hardware population count (`_popcnt64`) to compute line coordinates incrementally between match anchors.
+
+**Complexity:** Time: $O(\Delta / 32)$ where $\Delta$ is byte distance between successive matches | Space: $O(1)$ state.
 
 **How it works:**
-1. Remember the last offset whose line number is known.
-2. For a new match at offset p, count the newlines between the known offset and p.
-3. Count with SIMD: compare 32 bytes to `\n`, then count the set bits in the mask with one instruction.
-4. Add the count to the known line number and move the known point to p.
-5. Each byte is counted at most once.
+1. **Incremental Cursor Tracking:** Maintain an immutable line anchor state `(last_offset, last_line_number)` initialized to $(0, 1)$.
+2. **Delta Interval Evaluation:** When a new match is identified at byte offset $P_{\text{target}}$ ($P_{\text{target}} > \text{last\_offset}$), evaluate the slice $\text{buffer}[\text{last\_offset} \dots P_{\text{target}}]$.
+3. **SIMD Vector Comparison & Popcount:**
+   - Iterate over 32-byte chunks of the delta slice using AVX2 `_mm256_cmpeq_epi8` comparing against `\n` (`0x0A`).
+   - Extract the 32-bit mask via `_mm256_movemask_epi8`.
+   - Accumulate total newlines via hardware population count instruction (`_popcnt32` / `__builtin_popcount`):
+     $$\text{newlines\_in\_chunk} = \text{popcount}(\text{movemask}(\text{vcmpeq}(V_{\text{data}}, V_{\text{newline}})))$$
+4. **Scalar Remainder & State Advance:** Process remaining unaligned bytes ($< 32$) with scalar equality tests.
+5. **Anchor Update:** Compute current line number:
+   $$\text{current\_line} = \text{last\_line\_number} + \text{delta\_newlines}$$
+   Advance `last_offset = P_target` and `last_line_number = current_line`. Each byte in the file is traversed at most once.
 
 **Agent use:**
-- **Role:** Scout (locations for people and for viewer tools).
-- **How:** Line numbers drive "view lines 140–180" requests and human-readable reports. Byte offsets drive edits.
-- **Rules:** Request both line numbers and offsets whenever an edit may follow.
-- **Guardrails:** After any edit to a file, line numbers below it are stale. Re-search or re-map before the next edit.
+- **Role:** Scout and Reporter (Generates human-readable line coordinates and IDE jump links).
+- **How:** Converts raw byte offsets into exact line and column numbers for diagnostics, reports, and UI editor positioning.
+- **Rules:** Never recalculate line numbers from byte 0 for every match; always advance the incremental popcount cursor (R5).
+- **Guardrails:** Line numbers are invalidated immediately following any file mutation. Always re-map or re-scan before subsequent edits.
 
 ### 15. Block buffer with overlap
 
-**Definition:** Reading a big file in chunks without missing matches that cross chunk borders.
+**Definition:** Constant-memory streaming search pattern for massive files ($> 1\text{ GB}$) utilizing a circular sliding-window buffer with boundary overlap to guarantee zero missed matches across block boundaries.
+
+**Complexity:** Time: $O(N)$ linear streaming scan | Space: $O(B)$ where $B$ is fixed buffer size ($B = 64\text{ KB}$ to $1\text{ MB}$, independent of file size $N$).
 
 **How it works:**
-1. Read a fixed-size block into the buffer and search it.
-2. Keep the tail that could be the start of a match: the last partial line, or the last (pattern length − 1) bytes.
-3. Put that tail in front of the next block and search again.
-4. Track the absolute offset of the buffer start, so reported positions are correct.
-5. If one line is longer than the buffer, grow the buffer up to a cap, then truncate or skip.
+1. **Buffer Sizing & Overlap Threshold:** Allocate a fixed-size buffer of capacity $B$ ($128\text{ KB}$). Define overlap length $O_{\text{len}} = M_{\text{pattern}} - 1$ where $M_{\text{pattern}}$ is maximum pattern length.
+2. **Initial Block Read:** Read up to $B$ bytes into the buffer from disk via `read(2)` / `pread(2)`. Maintain `global_file_offset = 0`.
+3. **Primary Block Scan:** Execute the search engine across the active buffer slice $[0 \dots \text{bytes\_read})$.
+4. **Sliding Overlap Retention:**
+   - Copy the trailing $O_{\text{len}}$ bytes from the end of the current buffer to the beginning of the buffer ($[0 \dots O_{\text{len}})$).
+   - Read the next $(B - O_{\text{len}})$ bytes from disk into buffer position $[O_{\text{len}} \dots B)$.
+   - Update `global_file_offset += (\text{bytes\_read} - O_{\text{len}})`.
+5. **Deduplication & Boundary Normalization:** Offset detected matches by `global_file_offset`. Matches detected fully within the overlap window are deduplicated against the prior block.
 
 **Agent use:**
-- **Role:** Scout (huge logs, data dumps, big generated files).
-- **How:** Lets the agent search multi-GB files with constant memory and report exact absolute offsets.
-- **Rules:** Report absolute offsets, not offsets within the block.
-- **Guardrails:** Exclude files with extremely long lines (minified code). Don't search them or edit them.
+- **Role:** Scout (High-performance scanning of massive logs, databases, and monolithic artifacts).
+- **How:** Enables searching arbitrarily large files without exceeding strict container memory limits.
+- **Rules:** All reported match offsets must be translated to global absolute file offsets before generating edit plans (R7).
+- **Guardrails:** G3 (Safety Limits). Skip or truncate files containing lines exceeding the maximum buffer threshold (minified bundles).
 
 ### 16. Smart case
 
-**Definition:** Choosing case-sensitive or case-insensitive matching automatically from the pattern.
+**Definition:** Adaptive case-sensitivity resolution heuristic that dynamically switches between case-sensitive and case-insensitive matching based on the presence of uppercase literal characters in the pattern.
+
+**Complexity:** Time: $O(M)$ pattern inspection; downstream search complexity identical to underlying search engine | Space: $O(1)$.
 
 **How it works:**
-1. Scan the pattern's literal characters, ignoring escapes like `\S`.
-2. If any is uppercase, search case-sensitively.
-3. Otherwise search case-insensitively, either by expanding case variants of the literals or by comparing against a lowercase-mapped view.
-4. Unicode uses case-folding tables, so `ß` and `SS` can match.
+1. **Pattern Literal Scanning:** Parse the input search query $P$, distinguishing literal characters from regex metacharacters and escape sequences (`\d`, `\w`, `\S`, `\x20`).
+2. **Uppercase Detection:** Inspect all literal character codepoints:
+   $$\text{has\_uppercase} = \exists c \in P_{\text{literals}} \text{ s.t. } \text{is\_uppercase}(c)$$
+3. **Mode Dispatch:**
+   - If $\text{has\_uppercase} == \text{true}$: Execute matching in **Strict Case-Sensitive** mode.
+   - If $\text{has\_uppercase} == \text{false}$: Execute matching in **Case-Insensitive** mode.
+4. **Unicode Case Folding:** In case-insensitive mode, fold both pattern and search buffer using Unicode Simple Case Folding tables (mapping `A` $\leftrightarrow$ `a`, German `ß` $\leftrightarrow$ `SS`, Greek `Σ`/`σ`/`ς`).
+5. **SIMD Vectorized Case Folding:** In vector search loops, convert ASCII ranges `[A-Z]` to `[a-z]` via SIMD range comparison and bitwise addition before comparing against lowercased pattern vectors.
 
 **Agent use:**
-- **Role:** Scout.
-- **How:** Exploration of concepts ("timeout") can be insensitive. Symbol work (`UserConfig`) must be exact.
-- **Rules:** Any search whose results feed an edit must be case-sensitive.
-- **Guardrails:** Insensitive results are never passed directly to the Editor without re-confirming each hit exactly.
+- **Role:** Scout (Intent-based discovery).
+- **How:** Allows developer exploratory queries (`timeout`) to match `Timeout`, `TIMEOUT`, and `timeout`, while precise identifier queries (`UserAccountService`) remain strictly case-sensitive.
+- **Rules:** Any search whose matches feed directly into an automated mutation/edit plan must be strictly case-sensitive (R1, R4).
+- **Guardrails:** Case-insensitive match results must never be passed to the Editor without secondary exact-case confirmation.
 
 ## A3. String matching algorithms
 
 ### 17. Naive (linear) substring search
 
-**Definition:** Finding a pattern by trying every starting position in the text.
+**Definition:** Deterministic sliding-window string verification trying every offset in the text buffer, serving as the baseline verification kernel for small in-memory buffers.
+
+**Complexity:** Time: Worst-case $O(N \times M)$, Best-case $O(N)$ | Space: $O(1)$ auxiliary space.
 
 **How it works:**
-1. Loop over each position i in the text, from 0 to (text length − pattern length).
-2. At position i, compare the pattern's characters with the text one by one.
-3. If every character matches, return i (or record it and continue, to find all matches).
-4. On the first mismatch, stop comparing and move to i + 1.
-5. If the loop ends without a match, return "not found".
-6. The worst case is O(n × m), for example searching `aaab` in `aaaa…`.
+1. **Window Alignment:** Iterate candidate start offset $i$ from $0$ to $(N - M)$ where $N$ is text length and $M$ is pattern length.
+2. **Inner Character Comparison:** At each offset $i$, compare $\text{text}[i + j]$ with $\text{pattern}[j]$ for $j \in [0 \dots M-1]$.
+3. **Early Mismatch Break:** On the first mismatch $\text{text}[i + j] \ne \text{pattern}[j]$, terminate the inner loop immediately and increment $i \leftarrow i + 1$.
+4. **Match Emission:** If $j$ reaches $M$, record offset $i$ as a verified match.
+5. **Pathological Degradation:** Degrades to $O(N \times M)$ on highly repetitive/periodic patterns (e.g., searching $a^{M-1}b$ in $a^N$).
 
 **Agent use:**
-- **Role:** Scout or Verifier, for small checks.
-- **How:** Good enough for "does this exact snippet exist in this file I already loaded?", such as confirming a precondition before an edit.
-- **Rules:** Use it only on small, already-loaded text. Bulk scans go to optimized tools.
-- **Guardrails:** For edit anchors, require exactly one match. Zero or more than one means stop (R4).
+- **Role:** Verifier (Precondition and anchor verification on short, already-loaded memory slices).
+- **How:** Used exclusively to verify that a target replacement anchor exists exactly once within a loaded file buffer before modifying bytes.
+- **Rules:** Bulk repository sweeps must never use naive search; always route bulk queries to SIMD/DFA engines (R5).
+- **Guardrails:** For edit anchors, verify that match count $\equiv 1$. If count $\ne 1$, halt and re-plan (R4).
 
 ### 18. Knuth-Morris-Pratt (KMP)
 
-**Definition:** A substring search that never moves backward in the text.
+**Definition:** Deterministic linear-time string searching algorithm using a precomputed prefix function ($\pi$ table) to eliminate text pointer backtracking, guaranteeing strict forward-only stream processing.
+
+**Complexity:** Time: $O(N + M)$ guaranteed worst-case | Space: $O(M)$ for the prefix failure table $\pi$.
 
 **How it works:**
-1. Preprocess the pattern into a failure table. For each position j, it stores the length of the longest proper prefix of `pattern[0..j]` that is also its suffix.
-2. Scan the text with pointer i, and keep j = how many pattern characters currently match.
-3. If `text[i]` equals `pattern[j]`, advance both. If j reaches m, report a match and set j to the failure value.
-4. On a mismatch, don't move i back. Set j to `failure[j−1]` and compare again, or advance i if j is 0.
-5. Total cost is O(n + m).
+1. **Prefix Function ($\pi$ Table) Construction:** Compute the longest proper prefix of $\text{pattern}[0 \dots j]$ that is also a suffix of $\text{pattern}[0 \dots j]$:
+   $$\pi[j] = \max \{ k : k < j \text{ and } \text{pattern}[0 \dots k-1] = \text{pattern}[j-k+1 \dots j] \}$$
+2. **Deterministic Forward Traversal:** Maintain text cursor $i \in [0 \dots N-1]$ and pattern cursor $j \in [0 \dots M-1]$. Advance $i$ monotonically ($i$ never decrements).
+3. **State Transition on Character Match:** If $\text{text}[i] == \text{pattern}[j]$, increment $i \leftarrow i + 1$ and $j \leftarrow j + 1$.
+4. **State Fallback on Mismatch:** If a mismatch occurs at $j > 0$, reset $j \leftarrow \pi[j-1]$ without modifying $i$, and re-evaluate. If $j == 0$, increment $i \leftarrow i + 1$.
+5. **Match Reporting:** When $j == M$, emit match at offset $(i - M)$ and transition state $j \leftarrow \pi[M-1]$.
 
 **Agent use:**
-- **Role:** Scout (streaming input).
-- **How:** Ideal when the agent reads output it can't rewind: a running process's log, a network stream, or tool output arriving in pieces.
-- **Rules:** Use it for streams. For files, the library search is usually faster.
-- **Guardrails:** For streams, set a time or byte limit so the agent doesn't wait forever for a match.
+- **Role:** Scout (Streaming unseekable logs, pipes, process stdout, and network sockets).
+- **How:** Ingest streaming command output from running builds or servers; detect completion markers without buffering full streams in memory.
+- **Rules:** For on-disk files, prefer vectorized Boyer-Moore/Teddy; reserve KMP for unseekable streaming channels (R5).
+- **Guardrails:** G3. Apply strict byte and time limits on streaming KMP readers to prevent infinite blocking on hung processes.
 
 ### 19. Boyer-Moore
 
-**Definition:** A substring search that compares from the pattern's end and skips large parts of the text.
+**Definition:** Right-to-left pattern matching algorithm combining the Bad Character Rule ($\delta_1$) and the Strong Good Suffix Rule ($\delta_2$) to skip large blocks of text, achieving sub-linear average search speeds ($O(N / M)$).
+
+**Complexity:** Time: Average $O(N / M)$, Worst-case $O(N + M)$ (with Galil rule) | Space: $O(M + \Sigma)$ where $\Sigma$ is alphabet size ($256$ bytes).
 
 **How it works:**
-1. Align the pattern at the start of the text and compare right to left.
-2. **Bad-character rule:** on a mismatch at text character c, shift so that the last occurrence of c in the pattern aligns with it, or past it entirely if c isn't in the pattern.
-3. **Good-suffix rule:** if a suffix already matched, shift so that another copy of that suffix in the pattern lines up, or so that a prefix of the pattern matches the end of it.
-4. Use the larger of the two shifts.
-5. Long patterns over varied text often skip m characters per step, so many bytes are never read.
+1. **Bad Character Table ($\delta_1$):** For every byte $c \in \Sigma$, precompute the distance from the pattern's end to the rightmost occurrence of $c$ in $\text{pattern}[0 \dots M-2]$. If $c$ is not in the pattern, $\delta_1[c] = M$.
+2. **Good Suffix Table ($\delta_2$):** For each suffix $\text{pattern}[j \dots M-1]$, precompute shift distance to align with the next matching sub-pattern or pattern prefix.
+3. **Right-to-Left Verification:** Align pattern at text offset $k = M - 1$. Compare characters from right to left: $j = M - 1, M - 2, \dots, 0$.
+4. **Maximal Shift Execution:** Upon encountering a mismatch at $\text{pattern}[j] \ne \text{text}[k - (M - 1 - j)]$:
+   $$\text{shift} = \max(\delta_1[\text{text}[k - (M - 1 - j)]] - (M - 1 - j), \delta_2[j])$$
+   Advance alignment window: $k \leftarrow k + \text{shift}$.
+5. **Sub-Linear Skip Property:** For long patterns ($M \ge 16$) over diverse source code, the algorithm routinely shifts by $M$ bytes per comparison, skipping $> 90\%$ of input bytes.
 
 **Agent use:**
-- **Role:** Scout.
-- **How:** Long unique anchors (full signatures, long string constants) are the fastest and most precise searches. That's why the agent should anchor on long distinctive text.
-- **Rules:** Prefer long, specific anchors for locating edit sites.
-- **Guardrails:** A long anchor copied from the model's memory may differ slightly from the file (whitespace). On zero matches, fall back to a fuzzy search (#23, #28), then confirm.
+- **Role:** Scout (Long identifier, signature, and multiline block search).
+- **How:** Primary strategy for locating large refactoring anchor targets and unique function signatures.
+- **Rules:** Long, specific anchor strings must be preferred over short ambiguous tokens to maximize Boyer-Moore skip efficiency (R1, R4).
+- **Guardrails:** If an exact Boyer-Moore search for a remembered anchor returns 0 hits, fall back to Bitap fuzzy search (#23) to detect formatting drift before failing.
 
 ### 20. Boyer-Moore-Horspool
 
-**Definition:** A simplified Boyer-Moore that uses only one skip table.
+**Definition:** High-throughput simplification of Boyer-Moore retaining only the rightmost Bad Character Shift table, optimizing scalar CPU branch prediction and minimizing setup overhead.
+
+**Complexity:** Time: Average $O(N / M)$, Worst-case $O(N \times M)$ | Space: $O(\Sigma)$ (256-byte lookup array).
 
 **How it works:**
-1. For each byte value, store its distance from the pattern's end (its last position, excluding the final character). Bytes not in the pattern get the full pattern length.
-2. Compare the pattern at the current alignment.
-3. Whatever the result, look at the text byte under the pattern's last position.
-4. Shift by that byte's table value.
+1. **Horspool Shift Table Precomputation:** Populate a 256-entry array `shift` initialized to $M$. For $i = 0 \dots M - 2$, assign:
+   $$\text{shift}[\text{pattern}[i]] = M - 1 - i$$
+2. **Window Alignment:** Align pattern at text offset $i = 0$.
+3. **Rightmost Comparison:** Compare $\text{pattern}[M-1]$ with $\text{text}[i + M - 1]$. If equal, verify remaining bytes $\text{pattern}[0 \dots M-2]$ backwards.
+4. **Unconditional Shift by Last Window Byte:** Regardless of whether a match or mismatch occurred, shift alignment using the byte currently aligned with the end of the window:
+   $$i \leftarrow i + \text{shift}[\text{text}[i + M - 1]]$$
+5. **Hardware Cache Efficiency:** Because `shift` fits within four 64-byte L1 CPU cache lines, Horspool executes with zero cache misses in the inner loop.
 
 **Agent use:**
-- **Role:** Scout, for custom tools.
-- **How:** The easiest fast algorithm to implement when an agent writes its own lightweight search tool.
-- **Rules:** Only build it when no optimized library exists in the runtime.
-- **Guardrails:** Test it on edge cases (empty pattern, pattern longer than text, repeated characters) before trusting it.
+- **Role:** Scout (Lightweight custom search scripts and standalone Python automation tools).
+- **How:** Used when deploying self-contained scanning scripts where external C/Rust dependencies cannot be imported.
+- **Rules:** Validate pattern lengths ($M \ge 2$) before invoking to prevent zero-shift infinite loops (R5).
+- **Guardrails:** G3. Guard against quadratic worst-case on repetitive inputs by capping maximum iterations to $2N$.
 
 ### 21. Two-Way algorithm
 
-**Definition:** A substring search with linear worst-case time and constant extra memory.
+**Definition:** Optimal substring search algorithm (Crochemore & Perrin) that factors patterns into two segments via critical factorizations, achieving strict $O(N + M)$ time and $O(1)$ auxiliary space without hash tables.
+
+**Complexity:** Time: $O(N + M)$ worst-case, $O(N / M)$ average | Space: $O(1)$ auxiliary memory (zero heap allocation).
 
 **How it works:**
-1. Split the pattern at a "critical factorization" point, computed from maximal suffixes under two character orderings.
-2. Match the right part left to right.
-3. If the right part fully matches, match the left part right to left.
-4. On a mismatch, shift using the pattern's period, a proven safe distance.
-5. A memory trick avoids re-comparing already-matched characters in periodic patterns.
+1. **Critical Factorization:** Factor the pattern $P$ into two parts $P = u \cdot v$ at critical split point $l$ such that the local period at $l$ equals the global period $p$ of $P$. Split point $l$ is found in $O(M)$ time using maximal suffixes under lexicographic and reverse-lexicographic orderings.
+2. **Right-Segment Scan:** Compare right segment $v$ from left to right against the text window.
+3. **Left-Segment Scan:** If $v$ matches completely, compare left segment $u$ from right to left.
+4. **Period-Based Shifting:** On a mismatch in $v$, shift the pattern by the mismatch index; on a mismatch in $u$, shift by the exact global period $p$.
+5. **Memory Optimization:** In periodic patterns ($p \le M / 2$), remember previously matched characters across shifts to avoid redundant comparisons.
 
 **Agent use:**
-- **Role:** Scout.
-- **How:** This is what standard C library substring search uses, so the agent relies on it whenever it uses the default "find substring" functions.
-- **Rules:** Treat built-in substring search as safe for adversarial input (no quadratic worst case).
-- **Guardrails:** None specific, beyond the general result caps.
+- **Role:** Scout (Standard C library `strstr` / `memmem` backend and Python `str.find` baseline).
+- **How:** Serves as the guaranteed $O(1)$-memory fallback search engine across standard C/C++ runtimes.
+- **Rules:** Relied upon for memory-constrained environments where allocating lookup tables is prohibited.
+- **Guardrails:** Safe for adversarial inputs; immunity to $O(N \times M)$ algorithmic complexity attacks.
 
 ### 22. Rabin-Karp (rolling hash)
 
-**Definition:** Substring search by comparing hashes instead of strings.
+**Definition:** Multi-pattern and substring search algorithm utilizing a rolling polynomial hash function to compute $O(1)$ incremental window hash transitions across text streams.
+
+**Complexity:** Time: Average $O(N + M)$, Worst-case $O(N \times M)$ (mitigated by prime selection) | Space: $O(K)$ where $K$ is number of simultaneous pattern hashes.
 
 **How it works:**
-1. Compute the hash of the pattern.
-2. Compute the hash of the first m characters of text.
-3. Slide the window one character at a time: subtract the outgoing character's contribution, multiply by the base, add the incoming character. Each step is O(1).
-4. When the window hash equals the pattern hash, compare the real strings to rule out a collision.
-5. It extends naturally to many patterns of the same length (a set of hashes).
+1. **Polynomial Hash Definition:** For a string $S$ of length $M$, compute hash modulo large prime $q$:
+   $$H(S) = \left( \sum_{i=0}^{M-1} S[i] \cdot b^{M - 1 - i} \right) \bmod q$$
+   where $b$ is alphabet base ($b = 256$ or $2^{64}-59$) and $q$ is a 61-bit Mersenne prime ($2^{61}-1$).
+2. **$O(1)$ Sliding Window Rolling Update:** When advancing text window from $S[i \dots i+M-1]$ to $S[i+1 \dots i+M]$:
+   $$H_{\text{next}} = \left( (H_{\text{prev}} - S[i] \cdot b^{M-1}) \cdot b + S[i+M] \right) \bmod q$$
+3. **Multi-Pattern Hash Set Lookup:** Insert target pattern hashes into an $O(1)$ hash set. At each rolling text step, check if $H_{\text{window}} \in \text{HashTable}$.
+4. **Exact Match Verification:** Upon hash equality, perform character-by-character string comparison to rule out hash collisions.
+5. **Plagiarism & Duplicate Block Detection:** Slide fixed-size windows (e.g., $M = 50\text{ tokens}$) across entire repositories to locate copy-pasted code blocks in $O(N)$.
 
 **Agent use:**
-- **Role:** Scout (finding duplicate code).
-- **How:** Hash every window of k normalized lines across the repo. Equal hashes show copy-pasted blocks. The Planner then applies the same fix to all copies, or extracts them into one function.
-- **Rules:** Normalize before hashing (strip whitespace, optionally rename identifiers) so trivial differences don't hide duplicates.
-- **Guardrails:** Always verify real content on a hash hit. Never edit based on the hash alone.
+- **Role:** Scout and Planner (Repository-wide duplicate code detection and copy-paste refactoring).
+- **How:** Scans codebase for duplicate AST subtrees or normalized token windows to plan centralized helper extractions.
+- **Rules:** Code must be normalized (stripping comments, formatting, and variable names) before hashing to detect semantic duplicates (R1, R8).
+- **Guardrails:** Never mutate code based on hash matches alone; full string verification is mandatory before emitting diffs (R2).
 
 ### 23. Shift-Or / Bitap
 
-**Definition:** A bit-parallel matcher that tracks every partial match inside one integer, and extends to approximate matching.
+**Definition:** Bit-parallel pattern matching algorithm (Baeza-Yates–Gonnet) encoding NFA search states into machine word bitmasks, extending naturally to approximate $k$-mismatch / $k$-error Levenshtein search.
+
+**Complexity:** Time: $O(N \lceil M / W \rceil)$ exact; $O(k \cdot N \lceil M / W \rceil)$ for $k$ errors where $W = 64\text{ bits}$ | Space: $O(\Sigma \lceil M / W \rceil)$ where $\Sigma = 256$.
 
 **How it works:**
-1. For each character, precompute a bitmask of the positions where it occurs in the pattern.
-2. Keep a state bitmask where bit j means "the first j+1 pattern characters match, ending here".
-3. For each text character: shift the state, then combine it with that character's mask.
-4. When the bit for the full pattern length is set (or cleared, depending on convention), report a match.
-5. For k errors, keep k+1 state masks. Each allows one more error and is updated from the previous one.
+1. **Character Mask Table Precomputation:** For each byte $c \in \Sigma$, build a 64-bit mask $T[c]$ where bit $j$ is $0$ if $\text{pattern}[j] == c$, and $1$ otherwise.
+2. **Exact Matching State Transition:** Maintain a 64-bit state vector $R$ initialized to $\sim 0$ (`0xFFFFFFFFFFFFFFFF`). For each text byte $c$:
+   $$R \leftarrow (R \ll 1) \mid T[c]$$
+   If bit $(M-1)$ of $R$ is $0$, a match ends at current text offset.
+3. **Approximate Matching with $k$ Errors:** Maintain $k+1$ state vectors $R_0, R_1, \dots, R_k$. For each character $c$, update vectors simultaneously:
+   $$R_0 \leftarrow (R_0 \ll 1) \mid T[c]$$
+   $$R_d \leftarrow ((R_d \ll 1) \mid T[c]) \ \& \ (R_{d-1} \ll 1) \ \& \ (R_{d-1} \ll 1 \mid 1) \ \& \ R_{d-1} \quad (\text{for } 1 \le d \le k)$$
+   where bit operations model substitution, insertion, deletion, and exact match transitions in parallel.
+4. **Match Extraction:** If bit $(M-1)$ of $R_d$ is $0$, an approximate match with $\le d$ errors is found.
 
 **Agent use:**
-- **Role:** Editor support (fuzzy anchoring).
-- **How:** When an edit's anchor text no longer matches exactly (someone reformatted, a line moved), the agent fuzzy-finds the best location within a small error budget. This is how diff-match-patch style tools apply stale patches.
-- **Rules:** Fuzzy anchoring needs an error limit (for example ≤ 10% of the anchor length) and a single best match.
-- **Guardrails:** If two locations score similarly, or the error exceeds the limit, don't apply. Escalate to re-plan.
+- **Role:** Editor Support (Fuzzy anchor resolution for stale patches).
+- **How:** When a target replacement anchor fails exact matching due to intervening edits or formatting changes, Bitap locates the closest matching block within an allowed error budget ($k \le 0.10 \times M$).
+- **Rules:** The fuzzy resolver must output the exact calculated Levenshtein distance and require an unambiguous single winner (R4).
+- **Guardrails:** If multiple candidate locations exhibit identical minimum error distances, abort fuzzy resolution and escalate to human review (G5).
 
 ### 24. Aho-Corasick
 
-**Definition:** Finding many patterns at once in a single pass over the text.
+**Definition:** Deterministic multi-pattern dictionary matching automaton constructing a trie augmented with suffix failure transitions and dictionary output links, finding all occurrences of $K$ patterns in a single linear pass.
+
+**Complexity:** Time: $O(N + \sum_{i=1}^K M_i + Z)$ where $Z$ is total match occurrences | Space: $O(\Sigma \times \sum M_i)$ states.
 
 **How it works:**
-1. Build a trie of all patterns. Each node is a prefix; nodes that end a pattern are marked.
-2. Add failure links with a breadth-first pass. Each node's failure link points to the longest proper suffix of its prefix that also exists in the trie.
-3. Add output links, so a node also reports the shorter patterns that end there.
-4. Scan the text: follow the trie edge for each character. If there's no edge, follow failure links until one exists or you're back at the root.
-5. At every node, report its patterns and those on its output links.
-6. Cost is O(n + total pattern length + number of matches), regardless of the pattern count.
+1. **Prefix Trie Construction:** Insert all $K$ dictionary keywords into a root-anchored trie. Nodes representing keyword terminations are tagged with pattern IDs.
+2. **BFS Failure Link Construction:** Perform Breadth-First Search to construct failure transitions $f(u)$. For node $u$ with edge $c \to v$, $f(v)$ points to the longest proper suffix of the string represented by $v$ that exists as a prefix in the trie.
+3. **Dictionary Output Link Chaining:** For each node $u$, create direct output links to the nearest ancestor node that represents a completed dictionary keyword, enabling $O(1)$ reporting of nested sub-patterns.
+4. **Single-Pass Text Traversal:** Iterate through text string $\text{text}[0 \dots N-1]$:
+   - For character $c$, follow trie transition edge $(u, c)$.
+   - If no edge exists, traverse failure links $u \leftarrow f(u)$ until a valid transition exists or root is reached.
+   - At each step, traverse output links and emit all matching pattern IDs and end offsets.
+5. **Leftmost-Longest Match Selection:** When resolving overlapping matches, prioritize longest match spans to prevent greedy sub-token truncation.
 
 **Agent use:**
-- **Role:** Scout (large-scale sweeps).
-- **How:** "Find every usage of these 3,000 deprecated APIs" or "find all secrets matching these prefixes" becomes one pass. The output maps each pattern to its locations, so the Planner can attach a replacement rule per pattern.
-- **Rules:** Use leftmost-longest semantics for replacements, so `getUserName` isn't replaced as `getUser` + `Name`.
-- **Guardrails:** Overlapping matches must be resolved before editing (#121). Never apply two replacements to the same span.
+- **Role:** Scout (Massive dictionary sweeps, secret scanner, deprecated API detectors).
+- **How:** Compiles thousands of known API identifiers, CVE signatures, or secret prefixes into a single automaton, scanning repositories in one pass.
+- **Rules:** Replacement plans generated from Aho-Corasick matches must pass through an interval tree (#121) to resolve overlapping matches before mutation (R8).
+- **Guardrails:** G2/G3. Never apply multi-replacements to overlapping byte spans; emit structured collision warnings.
 
 ### 25. Wu-Manber
 
-**Definition:** Multi-pattern search that skips ahead like Boyer-Moore.
+**Definition:** Sub-linear multi-pattern matching algorithm combining multi-byte block hashing ($B = 2$ or $3$ characters) with Boyer-Moore style skip tables to search for thousands of patterns simultaneously.
+
+**Complexity:** Time: Average $O(N / M_{\min})$, Worst-case $O(N \times K)$ | Space: $O(\text{TableSize} + K)$ where $K$ is pattern count.
 
 **How it works:**
-1. Fix a window length equal to the shortest pattern's length.
-2. Hash blocks of 2–3 characters. A shift table stores how far you can jump when a block is seen at the window's end.
-3. If the shift is greater than 0, jump.
-4. If it's 0, a hash table lists the patterns ending with that block, optionally filtered by a prefix hash. Verify each.
-5. Long patterns lead to large average jumps.
+1. **Minimum Length Windowing:** Determine minimum pattern length $M_{\min} = \min_{1 \le i \le K} |P_i|$. Set block size $B = 2$ (for $K < 500$) or $B = 3$ (for $K \ge 500$).
+2. **SHIFT Table Precomputation:** Initialize `SHIFT` table of size $256^B$ with default value $(M_{\min} - B + 1)$. For each pattern $P_i$ and each $B$-gram at offset $j$ ($0 \le j \le M_{\min} - B$), compute:
+   $$\text{SHIFT}[\text{hash}(P_i[j \dots j+B-1])] = \min(\text{SHIFT}[\dots], M_{\min} - B - j)$$
+3. **HASH & PREFIX Tables:** Populate `HASH` table mapping the trailing $B$-gram of each pattern to a linked list of pattern IDs, and `PREFIX` table storing 2-byte prefix hashes for fast candidate pruning.
+4. **Scanning & Skipping Loop:** Align window of size $M_{\min}$ at text offset $i$:
+   - Hash $B$-gram at window tail: $h = \text{hash}(\text{text}[i + M_{\min} - B \dots i + M_{\min} - 1])$.
+   - If $\text{SHIFT}[h] > 0$, shift window: $i \leftarrow i + \text{SHIFT}[h]$.
+   - If $\text{SHIFT}[h] == 0$, verify candidate patterns in `HASH[h]` by comparing prefix hashes, followed by exact string comparisons. Advance $i \leftarrow i + 1$.
 
 **Agent use:**
-- **Role:** Scout.
-- **How:** Good for big lists of long keywords, such as all banned function names in a security sweep, when they're long enough to allow skipping.
-- **Rules:** It works best when the shortest pattern isn't tiny, so put very short patterns in a separate pass.
-- **Guardrails:** As with #24, resolve overlapping matches before editing.
+- **Role:** Scout (High-performance multi-pattern scanning for moderate-to-long keyword sets).
+- **How:** Executes wide security sweeps across thousands of compliance rules and banned function calls where patterns have length $\ge 6$ characters.
+- **Rules:** Short patterns ($< 4$ characters) must be segregated into an independent Aho-Corasick pass to prevent degrading Wu-Manber skip distances (R5).
+- **Guardrails:** G3. Overlapping match boundaries must be resolved before generating edit changesets.
 
 ### 26. Z-algorithm
 
-**Definition:** For each position in a string, the length of the longest substring starting there that matches the string's prefix.
+**Definition:** Linear-time string preprocessing algorithm computing an array $Z$ where $Z[i]$ represents the length of the longest substring starting at $\text{text}[i]$ that matches the prefix of $\text{text}$.
+
+**Complexity:** Time: Strict $O(N)$ linear time | Space: $O(N)$ for the $Z$-array.
 
 **How it works:**
-1. Maintain a window [L, R]: the rightmost segment known to match the prefix.
-2. For position i inside the window, start with the value at the mirrored position (i − L), capped at R − i.
-3. Extend by direct comparison, and update [L, R] if the match goes past R.
-4. For i outside the window, compare from scratch.
-5. To search, run it on `pattern + separator + text`. Positions whose value equals the pattern length are matches.
+1. **$Z$-Box Interval Tracking:** Maintain interval $[L, R]$ representing the rightmost segment of $\text{text}$ such that $\text{text}[L \dots R]$ matches a prefix of $\text{text}$ ($R = \max(j + Z[j] - 1)$).
+2. **Position Classification:** For index $i \in [1 \dots N-1]$:
+   - *Case 1 ($i > R$):* Compute $Z[i]$ from scratch by comparing $\text{text}[i \dots]$ with $\text{text}[0 \dots]$. If $Z[i] > 0$, set $L = i$ and $R = i + Z[i] - 1$.
+   - *Case 2 ($i \le R$):* Let $k = i - L$.
+     - If $Z[k] < R - i + 1$: By symmetry, $Z[i] = Z[k]$.
+     - If $Z[k] \ge R - i + 1$: The match extends at least to $R$. Expand by comparing $\text{text}[R+1 \dots]$ with $\text{text}[R-i+1 \dots]$. Update $L = i$ and $R = \text{new\_match\_end}$.
+3. **String Search Application:** Construct concatenated string $S = \text{pattern} + \$ + \text{text}$ where $\$$ is a unique delimiter not present in either string.
+4. **Match Discovery:** Compute $Z$-array for $S$. Any index $i > |\text{pattern}|$ where $Z[i] == |\text{pattern}|$ represents an exact match starting at text offset $i - |\text{pattern}| - 1$.
 
 **Agent use:**
-- **Role:** Scout or Verifier.
-- **How:** A simple, robust way to find all occurrences inside one loaded file, for example to count anchors before an edit.
-- **Rules:** Use it for counting and verifying, not for repo-wide scans.
-- **Guardrails:** Choose a separator that can't appear in either string.
+- **Role:** Verifier and Scout (Exact in-buffer pattern matching and periodic structural analysis).
+- **How:** Computes pattern occurrences and prefix periodicity inside single loaded file buffers without allocating complex failure trees.
+- **Rules:** Delimiter character $\$$ must be chosen to guarantee non-occurrence in target byte streams (R7).
+- **Guardrails:** Restrict $Z$-algorithm to in-memory buffers $\le 10\text{ MB}$; streaming inputs must use KMP (#18).
 
 ### 27. Levenshtein distance (dynamic programming)
 
