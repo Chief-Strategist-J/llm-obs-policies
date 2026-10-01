@@ -1,82 +1,155 @@
-# Checklist 03: Distributed Systems & Infrastructure Scale
+# Checklist 03: Distributed Systems & Infrastructure Scale (Exhaustive Verification)
 
 **Source Reference**: [Distributed Systems Edge Cases (Parts 18–28)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/rules/edgeCases/distributed-systems-edge-cases.md)  
-**Objective**: Guarantee distributed safety across network partitions, clock skews, process freezes, lock expiries, and cascading traffic storms.
+**Scope**: Complete operational checklist across Distributed Locks, Fencing Tokens, Leader Election, Clock Drift, Distributed Sagas, Network Partitions, Ephemeral Port Exhaustion, EBS Burst Credits, Emergent Feedback Loops, Chaos Testing, Code Smells, and Principles 29–44.
 
 ---
 
-## 1. Distributed Concurrency & Locking Safety
+## 1. Distributed Locking & Fencing Tokens (Part 18.1)
 
-- [ ] **Distributed Locks Must Use Fencing Tokens**:
-  - [ ] Are all distributed locks (Redis Redlock, Postgres advisory locks, Consul, Zookeeper) paired with monotonically increasing fencing tokens?
-  - [ ] Does the storage/resource layer check that incoming writes provide a fencing token strictly greater than the previously accepted token:
+- [ ] **Mandatory Fencing Token Enforcement**:
+  - [ ] Are all distributed locks (Redis, Postgres advisory locks, Consul, Zookeeper, etcd) coupled with a monotonically increasing fencing token generated on lock acquisition?
+  - [ ] Does the downstream storage/data service check that incoming writes provide a fencing token strictly greater than the highest token previously processed:
     ```sql
-    UPDATE target_resource 
-    SET data = :payload, last_fencing_token = :current_token 
+    UPDATE storage_resource 
+    SET state = :payload, last_fencing_token = :current_token 
     WHERE id = :resource_id AND last_fencing_token < :current_token;
     ```
-  - [ ] If 0 rows are updated, is the write rejected as an expired/stale lease (preventing split-brain data corruption during long GC pauses)?
-- [ ] **Lock Lease Heartbeats & Safe Expiration**:
-  - [ ] Are lock TTLs sufficiently longer than expected task duration, with asynchronous renewal background threads?
-  - [ ] If lease renewal fails, does the task immediately abort execution and release resources?
-- [ ] **Lock Ordering for Deadlock Avoidance**:
-  - [ ] When acquiring multiple locks/resources, are they always acquired in a deterministic global order (e.g., sorted alphabetically by resource ID)?
+  - [ ] If rows updated $= 0$, is the operation rejected as an expired/stale lease (preventing split-brain data corruption during long GC pauses, process freezes, or network stalls)?
+- [ ] **Lease Time-To-Live (TTL) & Heartbeat Threads**:
+  - [ ] Is lock TTL configured with significant margin over typical job duration ($> 3\times$ normal execution)?
+  - [ ] Does an active background heartbeat thread continuously renew the lock lease during task execution?
+  - [ ] If lease renewal fails or times out, does the worker task immediately abort execution and release resources?
+- [ ] **Deterministic Lock Acquisition Ordering**:
+  - [ ] When multiple distributed locks or database rows must be acquired, are they sorted in an absolute canonical order (e.g. sorted by UUID/ID) to eliminate circular deadlock conditions?
 
 ---
 
-## 2. Clocks, Time & Ordering Assumptions
+## 2. Consensus, Quorums & Leader Election (Parts 18.2, 18.3)
 
-- [ ] **Monotonic Clocks for Duration & Latency**:
-  - [ ] Are duration calculations, timeouts, and benchmark metrics measured using monotonic clocks (`clock_gettime(CLOCK_MONOTONIC)`, `process.hrtime()`, `time.Now().Sub()`), never system wall clocks?
-- [ ] **Wall Clock Skew & Leap Seconds**:
-  - [ ] Is wall-clock synchronization monitored via NTP/PTP with maximum skew alerts ($\Delta > 100\text{ms}$)?
-  - [ ] Are business orderings dependent on monotonic sequence numbers, Raft log indices, or Lamport timestamps rather than distributed wall clocks?
-
----
-
-## 3. Network Partitions & Partial Failures
-
-- [ ] **Split-Brain Mitigation**:
-  - [ ] Do cluster consensus decisions (Raft, Paxos, etcd) require a strict majority quorum ($Q = \lfloor N/2 \rfloor + 1$)?
-  - [ ] Are cluster nodes configured with odd counts ($N=3, 5, 7$) to avoid tied split-brain votes?
-- [ ] **Handling Half-Open Connections & TCP Keepalives**:
-  - [ ] Are TCP keepalives enabled (`SO_KEEPALIVE`, `TCP_KEEPIDLE`, `TCP_KEEPINTVL`) to detect silent connection drops through firewalls and NAT gateways?
-  - [ ] Are client-side and server-side idle connection timeouts configured symmetrically?
+- [ ] **Strict Majority Quorums**:
+  - [ ] Do cluster consensus decisions (Raft, Paxos, etcd) enforce strict majority quorum:
+    $$Q = \left\lfloor \frac{N}{2} \right\rfloor + 1$$
+  - [ ] Are cluster nodes configured with odd counts ($N=3, 5, 7$) to prevent tied split-brain states?
+- [ ] **Leader Election & Split-Brain Mitigation**:
+  - [ ] When a network partition occurs, does the isolated minority partition immediately relinquish leadership, stop serving writes, and reject mutations?
+  - [ ] Is cluster membership reconfiguration executed using joint consensus / single-node transitions to prevent dual-leader states?
 
 ---
 
-## 4. Cascading Failures & Backpressure Defenses
+## 3. Clocks, Logical Ordering & Timers (Part 18.4)
 
-- [ ] **Exponential Backoff with Full Jitter**:
-  - [ ] Are all retries implemented using exponential backoff with full jitter to eliminate resonant synchronization waves:
-    $$\text{Sleep} = \text{random}(0, \min(M, B \times 2^{\text{attempt}}))$$
-- [ ] **Retry Budgets & Circuit Breakers**:
-  - [ ] Are client retries constrained by a finite retry budget (e.g. retries can consume at most 10% of total outbound requests)?
-  - [ ] Do downstream calls route through a circuit breaker that fails fast when error rate exceeds threshold (e.g. 50% over 10s)?
-- [ ] **Deadline Propagation / Context Budgets**:
-  - [ ] Is an end-to-end request deadline passed through HTTP (`X-Request-Deadline` / `grpc-timeout`) across all service hops?
-  - [ ] If the remaining deadline is $\le 0$, is execution aborted immediately before performing expensive downstream work?
-- [ ] **Load Shedding & Queue Dropping**:
-  - [ ] Do saturated services drop or reject traffic early (`HTTP 429 / 503`) using CoDel or queue-depth limits rather than buffering requests until memory exhaustion?
+- [ ] **Strict Use of Monotonic Clocks**:
+  - [ ] Are all latency metrics, duration timers, timeouts, and rate limits calculated using monotonic clocks (`CLOCK_MONOTONIC`, `process.hrtime()`, `time.Now().Sub()`), never system wall clocks (`Date.now()`, `time.time()`)?
+- [ ] **Clock Skew & NTP Tolerance**:
+  - [ ] Are all servers synchronized via NTP/Chrony with automated alerts firing if clock offset exceeds $100\text{ms}$?
+  - [ ] Is domain ordering decoupled from wall clocks, relying instead on monotonically increasing sequence numbers, database sequences, or Lamport/Hybrid Logical Clocks?
 
 ---
 
-## 5. Caching, Thundering Herds & Secondary Storage
+## 4. Network Partitions & Connection Lifecycles (Part 18.5)
 
-- [ ] **Cache Stampede Prevention**:
-  - [ ] Are cache keys populated with probabilistic early expiration (XFetch algorithm) or single-flight mutexes (Go `singleflight`, Redis mutex)?
-  - [ ] Do cache TTLs include random jitter (e.g. TTL $\pm 10\%$) to prevent synchronized bulk expirations?
-- [ ] **Cache Invalidation Consistency**:
-  - [ ] Does cache eviction occur *after* the database transaction commits, or rely on CDC-driven cache updates?
-  - [ ] Is fallback behavior defined for when cache servers are completely unreachable?
+- [ ] **Handling Half-Open Connections**:
+  - [ ] Are TCP Keepalive parameters explicitly configured on all sockets:
+    - `TCP_KEEPIDLE = 60` (start keepalives after 60s of inactivity)
+    - `TCP_KEEPINTVL = 10` (send probe every 10s)
+    - `TCP_KEEPCNT = 3` (drop connection after 3 unacknowledged probes)
+  - [ ] Are HTTP/gRPC client and server idle timeouts aligned to prevent sending requests over half-open or gateway-terminated connections?
+- [ ] **Circuit Breakers for Broken Network Paths**:
+  - [ ] Do remote HTTP/gRPC clients wrap endpoints in circuit breakers (e.g. Netflix Hystrix/Resilience4j pattern) that trip when connection failure rates exceed 50% within a rolling window?
 
 ---
 
-## 6. Code Smells & Architectural Anti-Pattern Audit
+## 5. Distributed Sagas & Idempotency Engineering (Parts 18.6, 18.7)
 
-- [ ] **No Naked `sleep()` in Production or Concurrency Control**:
-  - [ ] Verify that code never uses `sleep(100ms)` as a synchronization or retry mechanism.
-- [ ] **No Unbounded Fan-Out**:
-  - [ ] Are concurrent asynchronous tasks (goroutines, Promises, threads) managed via bounded worker pools (`semaphore`, `errgroup` with limit), never unrestricted `Promise.all(unboundedList.map(...))`?
-- [ ] **No Silent Fallbacks**:
-  - [ ] Does fall-back logic emit structured warnings and metrics so degraded mode operation is immediately visible to operators?
+- [ ] **Saga Step Categorization**:
+  - [ ] **Compensatable Steps**: Every step before the pivot has a fully tested, automated compensating transaction (e.g. refunding reserved balance, cancelling reservation).
+  - [ ] **Pivot Step**: The definitive step after which the transaction cannot be cancelled and must go forward (e.g. capturing payment).
+  - [ ] **Retryable Steps**: Every step after the pivot is guaranteed to succeed eventually through idempotent retries (e.g. provisioning service, sending confirmation).
+- [ ] **Idempotency Key Deduplication Engine**:
+  - [ ] Are all mutative API endpoints (POST /payments, POST /orders) identified by unique, client-provided `Idempotency-Key` headers?
+  - [ ] Is idempotency recorded atomically:
+    ```sql
+    INSERT INTO idempotency_records (key, response_status, response_body, expires_at)
+    VALUES (:key, :status, :body, NOW() + INTERVAL '24 hours')
+    ON CONFLICT (key) DO NOTHING;
+    ```
+  - [ ] If a matching idempotency record already exists, does the server immediately return the cached response without re-executing business logic?
+
+---
+
+## 6. Database Internal Traps & Storage Pressures (Part 19)
+
+- [ ] **Foreign Key Cascades & Row Locking**:
+  - [ ] Are foreign keys indexed on referencing columns to prevent full-table share locks on parent table updates/deletes?
+- [ ] **Postgres Advisory Lock Scope**:
+  - [ ] Are advisory locks explicitly scoped: `pg_advisory_xact_lock()` for transaction scope, or paired with guaranteed `pg_advisory_unlock()` inside `try/finally` blocks for session scope?
+- [ ] **WAL & Checkpoint Saturation**:
+  - [ ] Is PostgreSQL `max_wal_size` sized appropriately (e.g. 16GB–64GB) with `checkpoint_completion_target = 0.9` to prevent disk I/O write spikes during high write throughput?
+
+---
+
+## 7. Infrastructure Bottlenecks & Network Exhaustion (Part 21)
+
+- [ ] **NAT Gateway & Ephemeral Port Limits**:
+  - [ ] Are outbound HTTP/gRPC clients reusing persistent connection pools (Keep-Alive) to avoid exhausting OS ephemeral ports ($65,535$ limit) and triggering SNAT port exhaustion on cloud NAT gateways?
+- [ ] **Cloud Storage IOPS & Burst Credits**:
+  - [ ] Are cloud block storage volumes (e.g. AWS EBS gp2/gp3) monitored for Burst Balance exhaustion ($\text{Burst Balance} < 50\%$), with provisioned IOPS configured for high-write databases?
+- [ ] **Load Balancer Algorithms**:
+  - [ ] Are load balancers configured for **Least Outstanding Requests** or **Power of Two Random Choices (P2C)** rather than naive Round Robin for uneven or long-lived request streams?
+
+---
+
+## 8. Second-Order & Emergent Failure Defenses (Part 22)
+
+- [ ] **Cache Invalidation Stampede Prevention**:
+  - [ ] Are cache keys refreshed proactively using probabilistic early expiration (XFetch algorithm) or single-flight mutexes (Go `singleflight` / Redis lock)?
+  - [ ] Do cache TTLs include randomized jitter (e.g. $\text{TTL} \pm 15\%$) to prevent synchronized mass expiration?
+- [ ] **Autoscaling Oscillation (Flapping) Control**:
+  - [ ] Are autoscalers configured with cooldown / stabilization windows (e.g. 5–10 mins cooldown before scaling in) to prevent oscillation during bursty traffic?
+- [ ] **Health Check Thrashing Prevention**:
+  - [ ] Do healthcheck probes require multiple consecutive failures (e.g. 3 consecutive failures over 30s) before marking an instance unhealthy, preventing transient blips from evicting entire server pools?
+
+---
+
+## 9. Methods for Exposing Unknown Unknowns (Part 23)
+
+- [ ] **Chaos Fault Injection & Game Days**:
+  - [ ] Are systems regularly tested in staging/pre-prod under simulated chaos:
+    - Packet drops (20% latency/loss via `tc/netem`).
+    - Sudden instance termination (`SIGKILL`).
+    - Clock skew injections ($\pm 5\text{ seconds}$).
+    - Database primary failover drills.
+- [ ] **Shadow Traffic & Dark Launching**:
+  - [ ] Are major architectural rewrites verified by replaying live production traffic asynchronously before cutting over?
+
+---
+
+## 10. Code Smells & Architectural Anti-Pattern Audit (Part 26)
+
+- [ ] **Audit Checklist - Zero Tolerance for the Following Smells**:
+  - [ ] **`sleep()` in Logic or Tests**: No hardcoded sleep intervals used for synchronization or waiting.
+  - [ ] **Naked Retries**: No unbounded `while(true) { try { ... } catch { retry; } }` loops without backoff and finite budget.
+  - [ ] **Unbounded Concurrency**: No naked `Promise.all(massiveList.map(...))` or spawning unbounded goroutines without semaphores.
+  - [ ] **Swallowed Exceptions**: No empty `catch (e) {}` blocks that mask failures or return misleading empty arrays.
+  - [ ] **Global In-Memory Maps**: No static dictionaries/maps caching objects without LRU eviction and memory bounds.
+
+---
+
+## 11. Principles 29–44 Operationalized (Part 28)
+
+- [ ] Enforce fencing tokens on every distributed lease.
+- [ ] Rely on quorum majorities for consensus decisions.
+- [ ] Use monotonic clocks for elapsed time and timeouts.
+- [ ] Propagate deadline budgets through every RPC hop.
+- [ ] Apply exponential backoff with full randomized jitter to every retry.
+- [ ] Ensure all state mutations support idempotent replay.
+- [ ] Protect databases from connection starvation via connection poolers.
+- [ ] Prevent cache stampedes with probabilistic refresh and jittered TTLs.
+- [ ] Maintain backward and forward compatibility across schema versions.
+- [ ] Reconcile state against independent authoritative logs.
+- [ ] Test with the ugliest real-world datasets under simulated chaos.
+- [ ] Question every framework default (isolation levels, timeouts, pool sizes).
+- [ ] Make the safe operational path the default and the dangerous path hard.
+- [ ] Document accepted risks with explicit owners and expiry dates.
+- [ ] Assume understanding is partial and verify continuous health via production audits.
