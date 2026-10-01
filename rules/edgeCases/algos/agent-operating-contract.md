@@ -134,10 +134,10 @@ All agents executing codebase searches, AST refactorings, and multi-file migrati
 
 ## 🏛️ Functional Algorithm Architecture & Categorized Directory Structure
 
-All algorithms specified in this contract are categorized and executable via dedicated modules under `policies/policy-orchestrator/src/features/search_engine/algos/`:
+All algorithms specified in this contract are categorized and executable via dedicated modules under `policies/policy-orchestrator/src/features/code_engine/algos/`:
 
 ```
-policies/policy-orchestrator/src/features/search_engine/algos/
+policies/policy-orchestrator/src/features/code_engine/algos/
 ├── search/                               # File discovery, filtering & fast string scanning
 │   ├── search_algo_recursive_walk.py              # Algo 01: DFS recursive walker with depth bounds
 │   ├── search_algo_work_stealing_walker.py        # Algo 02: Parallel work-stealing tree crawler
