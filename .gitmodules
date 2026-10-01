@@ -1,0 +1,3 @@
+[submodule "policy-orchestrator"]
+	path = policy-orchestrator
+	url = https://github.com/Chief-Strategist-J/policy-orchestrator.git
