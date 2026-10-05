@@ -17,22 +17,43 @@ The format below matches the earlier references, with "Glue use" in place of "Ag
 
 ## Layer 1: Contracts (making algorithms pluggable)
 
-### G1. Typed interface contract
+### G1. Typed interface contract (16 Mandatory Properties)
 
-**Definition:** A formal description of each algorithm's inputs, outputs, parameters and behavior, so that a machine can decide what can connect to what.
+**Definition:** A formal, machine-readable description of each algorithm's inputs, outputs, parameters, execution constraints, safety invariants, and performance bounds, allowing planners and orchestration engines to combine algorithms deterministically without runtime type errors.
 
-**How it works:**
-1. Each algorithm declares its input types (for example "list of file paths", "vector set", "graph snapshot") and output types ("ranked matches with byte ranges").
-2. It declares its parameters, with types, ranges and defaults (k, ef, depth, threshold).
-3. It declares its properties: deterministic or not, idempotent or not, side effects (read-only, writes), and cost estimate (time and memory as a function of input size).
-4. Contracts are written in a schema language (JSON Schema, Protocol Buffers or Avro), so they can be checked automatically.
-5. Two algorithms can connect when the first one's output type is compatible with the second one's input type.
+**The 16 Standard Contract Properties:**
 
-**Glue use:** This is the foundation of everything. Code ref #24 (Aho-Corasick) outputs "matches with offsets"; Code ref #121 (overlap detection) inputs "edits with ranges". With contracts, the engine knows an adapter (G4) is needed between them.
+| # | Property Name | Type / Format | Example Value | Description |
+|---|---|---|---|---|
+| **1** | `id` | `string` | `"ALGO-SRCH-11"` | Unique immutable identifier across the catalog. |
+| **2** | `name` | `string` | `"SearchEngineAhoCorasickAlgo"` | Canonical algorithm name. |
+| **3** | `version` | `string (SemVer)` | `"1.0.0"` | Semantic versioning (`MAJOR.MINOR.PATCH`). |
+| **4** | `category` | `enum` | `"search" \| "observability" \| "update"` | High-level classification partition. |
+| **5** | `capability_tags` | `array[string]` | `["search.multipattern", "automaton.dfa"]` | G2 searchable indexing tags for capability queries. |
+| **6** | `input_schema` | `JSONSchema` | `{"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}}` | Machine-checkable JSON schema of input payload. |
+| **7** | `output_schema` | `JSONSchema` | `{"type": "array", "items": {"type": "object", "properties": {"pattern": {"type": "string"}}}}` | Machine-checkable JSON schema of output payload. |
+| **8** | `parameters_schema` | `JSONSchema` | `{"type": "object", "properties": {"patterns": {"type": "array", "items": {"type": "string"}}}}` | Tunable execution hyperparameters, ranges, and defaults. |
+| **9** | `purity` | `enum` | `"pure" \| "impure"` | `pure` if output depends solely on inputs with zero state access. |
+| **10** | `determinism` | `enum` | `"deterministic" \| "non_deterministic"` | `deterministic` if identical inputs always produce identical output. |
+| **11** | `idempotency` | `enum` | `"idempotent" \| "non_idempotent"` | `idempotent` if running $N$ times produces identical state as 1 run. |
+| **12** | `reversibility` | `enum` | `"reversible" \| "irreversible"` | `reversible` if state can be rolled back via inverse patch/undo. |
+| **13** | `side_effects` | `enum` | `"none" \| "read_only" \| "disk_write" \| "network"` | Environmental mutation scope. Enforces read-before-write safety. |
+| **14** | `concurrency_model` | `enum` | `"thread_safe" \| "process_isolated" \| "single_threaded"` | Safe parallelization target (multiprocessing vs threading). |
+| **15** | `hardware_target` | `enum` | `"cpu_scalar" \| "simd_vector" \| "gpu_accelerated"` | Hardware execution target & SIMD vector width requirements. |
+| **16** | `complexity` | `object {time, space}` | `{"time": "O(N + M)", "space": "O(Σ PatternLengths)"}` | Asymptotic Big-O time and memory consumption bounds. |
 
-**Guardrails:** No algorithm enters the registry without a complete contract. Contracts are versioned (G3).
+**Invariants & Boundary Attachments:**
+- `preconditions` (`array[string]`): Invariant boolean assertions that must evaluate to `True` before execution (e.g. `len(parameters.patterns) > 0`).
+- `postconditions` (`array[string]`): Guaranteed invariants that must evaluate to `True` after execution (e.g. `is_sorted_by_offset(output)`).
+- `compatible_adapters` (`array[string]`): List of registered G4 Type Adapters that can directly consume or convert this algorithm's output.
+- `is_active` (`boolean`): Lifecycle toggle flag to deprecate/disable algorithms without deleting historical records.
+
+**Glue use:** This 16-field contract is the foundational data model for the entire engine. When Step A (`ALGO-SRCH-01`) produces `filesystem.file_path[]` and Step B (`ALGO-OBS-17`) requires `source.text_content`, the Planner reads both `input_schema` and `output_schema`, identifies the mismatch, and auto-injects `ADAPTER-FILE-PATH-TO-CONTENT`.
+
+**Guardrails:** No algorithm enters the registry without all 16 properties specified and validated against the database schema lock.
 
 ### G2. Capability registry (service catalog)
+
 
 **Definition:** A searchable catalog of every available algorithm, indexed by what it consumes, produces and can do.
 
@@ -103,10 +124,6 @@ The format below matches the earlier references, with "Glue use" in place of "Ag
 
 **Guardrails:** Validation can't be turned off for write steps.
 
----
-
-
----
 
 ## How it works end to end, with no AI involved
 
