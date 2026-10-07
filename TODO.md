@@ -21,24 +21,26 @@ For the complete architectural blueprint and itemized backlog, see the submodule
 
 ### 🚀 Prioritized Roadmap Summary
 
-- **🔴 P0 (Critical / Next Sprint)**:
-  1. AST-Safe Automated Zero-Inline-Comment Migrator (`libcst` / `tree-sitter`).
-  2. Real-Time Streaming Telemetry & SSE (`/api/v1/agent/stream`).
-  3. Multi-Project Workspace Batch Synchronizer (`policy-orchestrator sync`).
-  4. GraphRAG Hybrid Fusion (Neo4j subgraphs + Qdrant dense vector embeddings).
+- **🔴 P0 (Flagship Core — "Neuron" Neuro-Memory & Context Compressor)**:
+  1. **Neuron Context Pruner & Token Compressor**: 85%+ prompt token reduction via AST slicing, Red-Green trees, and triple pruning.
+  2. **Synaptic Episodic Memory Matrix**: Bitemporal knowledge graph storing decisions, architecture invariants, and long-term context across turns.
+  3. **Strict Policy & Rule Enforcer**: Enforces `policies/rules/` (Hexagonal architecture, Zero-inline-comments, naming conventions) via SHACL & Datalog guards.
+  4. **Algorithmic Subtask Dispatcher**: Direct offload of search, diff, graph traversals, and quantization to the 926 compiled algorithms.
 
-- **🟠 P1 (High Priority)**:
-  5. Hypothetical Document Embeddings (HyDE) & Cross-Encoder Reranker.
-  6. Auto-Generated Scraper & AST Tool Self-Registration in `ToolRegistryPort`.
-  7. Self-Updating Policy Proposal Engine (Automated PR Generator).
-  8. OpenTelemetry Span Exporter to OTLP / Grafana Tempo.
+- **🟠 P1 (Algorithmic Composition & Multi-Agent Swarm)**:
+  5. **Composition DAG Engine (L2–L8)**: Sequential, branching, parallel, and speculative algorithm pipeline synthesizer.
+  6. **Dynamic Multi-Agent Swarm Coordinator**: Orchestrates 1000+ Declarative Agent manifests with inter-agent consensus.
+  7. **Real-Time Streaming Telemetry & SSE**: `/api/v1/agent/stream` emitting reasoning tokens and trace spans.
+  8. **Multi-Project Workspace Synchronizer**: Background indexing daemon (`policy-orchestrator sync --all`).
 
-- **🟡 P2 (Medium Priority)**:
-  9. Multi-Agent Swarm Delegation (Linter, Security, Refactor, Docs Agents).
-  10. Temporal / Durable Workflow Orchestration Worker.
-  11. CloudEvents Git PR Webhook Consumer.
+- **🟡 P2 (Governance, CI/CD & Automated Evolution)**:
+  9. **AST Zero-Inline-Comment Migrator & CI Enforcer**: Auto-refactoring tool and pre-commit gate.
+  10. **Self-Updating Policy Proposal Engine**: Autonomous PR generator for policy evolution.
+  11. **CloudEvents Git Webhook Ingestion**: Webhook handler evaluating incoming PRs against active rules.
 
-- **🟢 P3 (Future)**:
-  12. Local Model Distillation & Quantized Policy Model Fine-Tuning.
-  13. Multi-Modal Architecture Diagram Extractor.
+- **🟢 P3 (Production Scaling & Durable Execution)**:
+  12. **OpenTelemetry OTLP Exporter & Prometheus Metrics**: Native exporter to Jaeger/Tempo and `/metrics`.
+  13. **Temporal / Durable Execution Worker**: Fault-tolerant workflow worker for long-running batch migrations.
+  14. **End-to-End Performance Benchmarks**: Locust load testing validating <50ms p95 across 700 endpoints.
+
 
