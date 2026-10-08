@@ -140,7 +140,7 @@ Verify `src/features/{feature}/service/{feature}.service.[ext]` and `types/` exi
 6. Return standard RFC envelope on success (`success: true`, `statusCode`, `data`, `meta`).
 
 ### Instruction 3: Implement Delivery Router (`src/api/rest/v1/routers/{feature}.router.[ext]`)
-1. Mount endpoints under `/api/v1/{feature}` with explicit HTTP verbs (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
+1. Mount endpoints using route paths and base prefixes declared in `config/` (`config/endpoints.yaml` or `config/default.yaml`) with explicit HTTP verbs (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
 2. Attach authentication, rate-limiting, and validation middleware.
 3. Wire route endpoints directly to handler methods with zero business logic in routers.
 
