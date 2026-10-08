@@ -131,425 +131,279 @@ packages/
 
 ### Complete Unified API-Driven Workspace & Package Directory Tree
 
-Every service/sub-package in every language enforces this complete, pure API-driven layout logically structured from workspace contract specifications down to implementation and verification manifests:
+The complete structural reference tree for all polyglot sub-packages and 10-role feature modules:
 
+#### 1. Complete Unified Package Directory Tree
 ```
-
 {package-name}/
-│ - 2. Sub-Package Root Directory
-│
 ├── contracts/
-│   - Authoritative contract specs owned by this package
 │   ├── .gitkeep
 │   ├── openapi/
-│   │   - OpenAPI REST specs & changelog
 │   │   ├── .gitkeep
 │   │   ├── v1.yaml
 │   │   ├── v2.yaml
-│   │   │   - Created only when breaking changes force major version
 │   │   └── changelog.md
 │   ├── graphql/
-│   │   - Included only when GraphQL is selected
 │   │   ├── .gitkeep
 │   │   ├── v1.graphql
 │   │   └── changelog.md
 │   ├── proto/
-│   │   - Included only when gRPC is selected
 │   │   ├── .gitkeep
 │   │   └── v1/
 │   ├── asyncapi/
-│   │   - Included only when async event streams exist
 │   │   ├── .gitkeep
 │   │   └── v1.yaml
 │   ├── json-schema/
-│   │   - Event payload validation schemas
 │   │   ├── .gitkeep
 │   │   └── {event}/
 │   │       └── v1.json
 │   └── changelog.md
-│       - Package contract revision history
 │
 ├── config/
-│   - Centralized package environment & runtime configuration management
 │   ├── .gitkeep
 │   ├── env.schema
-│   │   - Environment variable schema definition & runtime validation
 │   ├── default.yaml
-│   │   - Baseline default configuration values
 │   ├── development.yaml
-│   │   - Local development configuration overrides
 │   ├── production.yaml
-│   │   - Production environment configuration overrides
 │   ├── test.yaml
-│   │   - Automated test environment configuration overrides
 │   └── feature-flags.yaml
-│       - Service-scoped feature flags & fallback toggles
 │
 ├── database/
-│   - Language-agnostic Database, Partitioning & Persistence Management - The Persistence Heart
 │   ├── .gitkeep
 │   ├── migrations/
-│   │   - Versioned SQL DDL migrations with mandatory rollback pairs
 │   │   ├── .gitkeep
 │   │   ├── 0001_initial_schema.sql
-│   │   │   - Upward schema DDL migration script - NNNN_description.sql
 │   │   └── 0001_initial_schema.rollback.sql
-│   │       - Matching rollback DDL script - NNNN_description.rollback.sql
 │   ├── rls/
-│   │   - Row Level Security & Multi-Tenant Data Isolation Policies
 │   │   ├── .gitkeep
 │   │   └── 0001_tenant_isolation_rls.sql
-│   │       - PostgreSQL / AlloyDB RLS policies for multi-tenant data safety
 │   ├── indexes/
-│   │   - Foreign Key & Query Performance Optimization Index Specs
 │   │   ├── .gitkeep
 │   │   └── 0001_performance_indexes.sql
-│   │       - Foreign keys, GIN/B-tree indexes, and composite lookup optimizations
 │   ├── partitioning/
-│   │   - Data Partitioning Specs - Range-Based 8.1, Hash-Based 8.2, Directory-Based 8.3
 │   │   ├── .gitkeep
 │   │   ├── range_partitioning.yaml
-│   │   │   - Range boundaries split points & auto-split threshold specs
 │   │   ├── hash_partitioning.yaml
-│   │   │   - Consistent hash ring positions & virtual node count specs
 │   │   └── directory_partitioning.json
-│   │       - Explicit directory lookup table & key-to-partition mapping entries
 │   ├── storage_engine/
-│   │   - Storage Engine Specs - LSM 8.7, Tiered 8.8, Hot/Cold 8.9, Polyglot 8.10
 │   │   ├── .gitkeep
 │   │   ├── lsm_storage.yaml
-│   │   │   - Memtable flush thresholds, SSTable levels & compaction rules
 │   │   ├── tiered_storage.yaml
-│   │   │   - Access metadata idle thresholds & hot/warm/cold migration policies
 │   │   ├── hot_cold_archiving.sql
-│   │   │   - Bimodal hot-to-cold store scheduled archiving purge sweep
 │   │   └── polyglot_dispatch.json
-│   │       - Workload type to specialized store mappings - relational, search, vector, KV
 │   ├── replication/
-│   │   - Replication Topologies - Read Replica 8.4, Designated Writer 8.5, Multi-Master 8.6, Leader-Follower
 │   │   ├── .gitkeep
 │   │   ├── topology_spec.yaml
-│   │   │   - Declarative replication topology - Leader-Follower, Active-Active, Active-Passive
 │   │   └── chain_replication.yaml
-│   │       - Chain replication head-to-tail propagation spec
 │   ├── consensus/
-│   │   - State Machine Replication & Raft Consensus Specs
 │   │   ├── .gitkeep
 │   │   ├── raft_consensus.yaml
-│   │   │   - Raft election timeout, term tracking & log entry commit spec
 │   │   └── wal_shipping.yaml
-│   │       - Write-Ahead Log offset shipping & segment replay spec
 │   ├── quorums/
-│   │   - Dynamo-Style Read/Write Quorums & ACK Strategy Specs
 │   │   ├── .gitkeep
 │   │   ├── quorum_config.yaml
-│   │   │   - Quorum rules - strict W+R>N, sloppy write/read light
 │   │   └── ack_policy.yaml
-│   │       - ACK strategy specs - Synchronous, Asynchronous, Semi-Synchronous k-ack
 │   ├── cdc/
-│   │   - Change Data Capture Pipeline Specs
 │   │   ├── .gitkeep
 │   │   ├── cdc_publisher_spec.json
-│   │   │   - WAL tailer stream & Kafka event publisher spec
 │   │   └── cdc_sink_spec.json
-│   │       - Sink applier & offset checkpoint store spec
 │   ├── sharding/
-│   │   - Sharded Replication & Consistent Hashing Ring Maps
 │   │   ├── .gitkeep
 │   │   └── shard_hash_ring.yaml
-│   │       - Consistent hash ring mapping & shard key routing rules
 │   ├── crdts/
-│   │   - Conflict-Free Replicated Data Types & Hybrid Clock Specs
 │   │   ├── .gitkeep
 │   │   ├── crdt_definitions.yaml
-│   │   │   - GCounter, ORSet state-based CRDT merge schemas
 │   │   └── hybrid_clock.yaml
-│   │       - Hybrid logical clock tick & LWW conflict resolution spec
 │   ├── anti_entropy/
-│   │   - Background Anti-Entropy Sync & Merkle Tree Diff Jobs
 │   │   ├── .gitkeep
 │   │   └── merkle_tree_sync.sql
-│   │       - Merkle tree hash diff sweep & anti-entropy repair job
 │   ├── fencing/
-│   │   - Monotonic Epoch Fencing & Standby Promotion Specs
 │   │   ├── .gitkeep
 │   │   └── fencing_epoch_failover.sql
-│   │       - Fenced storage write & standby promotion failover script
 │   ├── retention/
-│   │   - Automated Backup Retention, Compliance & Soft-Delete Purge Jobs
 │   │   ├── .gitkeep
 │   │   └── soft_delete_30day_purge.sql
-│   │       - Automated 30-day backup retention & soft-delete purge script
 │   ├── seeds/
-│   │   - Environment-Specific Database Seed Fixtures
 │   │   ├── .gitkeep
 │   │   ├── dev.seed.sql
-│   │   │   - Local development environment fixtures
 │   │   └── test.seed.sql
-│   │       - Automated integration & E2E test suite fixtures
 │   └── schema.lock
-│       - Immutable cryptographic lock file of applied DB migrations
 │
 ├── messaging/
-│   - Language-agnostic Messaging & Event Topic Management - The Streaming Heart
 │   ├── .gitkeep
 │   ├── topics/
-│   │   - Versioned Kafka Topic Provisioning Specs & Rollback Pairs
 │   │   ├── .gitkeep
 │   │   ├── 0001_create_user_events.json
-│   │   │   - Topic provisioning spec - partitions, retention, min.insync.replicas
 │   │   └── 0001_create_user_events.rollback.json
-│   │       - Topic de-provisioning & rollback spec
 │   ├── schema-registry/
-│   │   - Schema Registry Definitions - Avro, Protobuf, JSON Schema
 │   │   ├── .gitkeep
 │   │   └── user_events.v1.json
 │   ├── dlq/
-│   │   - Dead Letter Queue Retry & Policy Specs
 │   │   ├── .gitkeep
 │   │   └── dlq_policy.yaml
 │   ├── subscriptions/
-│   │   - Consumer Group Subscriptions & Topic Mapping Specs
 │   │   ├── .gitkeep
 │   │   └── consumer_groups.yaml
 │   └── topics.lock
-│       - Immutable cryptographic lock file of provisioned topics
 │
 ├── deploy/
-│   - Infrastructure deployment specifications
 │   ├── .gitkeep
 │   ├── k8s/
-│   │   - Kubernetes manifests - Deployment, Service, HPA, ConfigMap
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   ├── hpa.yaml
+│   │   └── configmap.yaml
 │   └── helm/
-│       - Helm deployment values charts
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       └── values.{env}.yaml
 │
 ├── src/
-│   - 3. Application Implementation Source Code
 │   ├── api/
-│   │   - Delivery entry points only
 │   │   ├── .gitkeep
 │   │   ├── rest/v1/
-│   │   │   - REST handlers & declarative route rules
 │   │   │   ├── .gitkeep
-│   │   │   ├── router
-│   │   │   ├── route.rules
+│   │   │   ├── router/
+│   │   │   ├── route.rules/
 │   │   │   └── handlers/
 │   │   ├── graphql/v1/
-│   │   │   - GraphQL resolvers & dataloaders
 │   │   │   ├── .gitkeep
-│   │   │   ├── schema
+│   │   │   ├── schema/
 │   │   │   ├── resolvers/
 │   │   │   └── dataloaders/
 │   │   ├── grpc/v1/
-│   │   │   - gRPC server stubs & handlers
 │   │   │   ├── .gitkeep
-│   │   │   ├── server
+│   │   │   ├── server/
 │   │   │   └── handlers/
 │   │   └── events/
-│   │       - Event delivery entry points
 │   │       ├── .gitkeep
 │   │       ├── consumers/
 │   │       └── publishers/
 │   │
 │   ├── features/
-│   │   - Isolated business domain feature modules
 │   │   ├── .gitkeep
 │   │   └── {feature-name}/
-│   │       ├── .gitkeep
-│   │       ├── index
-│   │       │   - Public interface export for this feature
-│   │       ├── context.md
-│   │       │   - Business domain context, dependencies & ADR link
-│   │       ├── schema
-│   │       │   - Entity schema contract - fields, validate, fromApi, toApi
+│   │       ├── context.yml
+│   │       ├── index.[ext]
+│   │       ├── schema/
+│   │       │   └── {feature}.schema.[ext]
 │   │       ├── queries/
-│   │       │   - MANDATORY: Flow-by-Flow Database Queries
 │   │       │   ├── .gitkeep
 │   │       │   └── {feature}.queries.[ext|sql]
-│   │       │       - Named, flow-grouped parameterized queries
-│   │       ├── rules
-│   │       │   - Business rules AS DATA - priority, category, async conditions
-│   │       ├── machines
-│   │       │   - State machine definitions AS DATA - State DAG / DSL
-│   │       ├── workflows
-│   │       │   - Step automation DAG definitions AS DATA
-│   │       ├── service
-│   │       │   - Pure domain service logic - no direct HTTP/IO
-│   │       ├── repository
-│   │       │   - Data access via queries/ and port interface
-│   │       ├── types
-│   │       │   - Feature-local domain types
-│   │       └── tests/
-│   │           - Feature-scoped unit & integration tests
-│   │           ├── .gitkeep
-│   │           ├── unit/
-│   │           ├── integration/
-│   │           └── contract/
+│   │       ├── rules/
+│   │       │   └── {feature}.rules.[ext]
+│   │       ├── machines/
+│   │       │   └── {feature}.machine.[ext]
+│   │       ├── workflows/
+│   │       │   └── {feature}.workflow.[ext]
+│   │       ├── repository/
+│   │       │   ├── {feature}.repository.port.[ext]
+│   │       │   └── {feature}.repository.[ext]
+│   │       ├── service/
+│   │       │   └── {feature}.service.[ext]
+│   │       └── types/
+│   │           └── {feature}.types.[ext]
 │   │
 │   ├── infra/
-│   │   - Infrastructure adapters & generated client SDKs
 │   │   ├── .gitkeep
 │   │   ├── config/
-│   │   │   - Strongly-typed configuration loader & secrets resolver engine
 │   │   │   ├── .gitkeep
-│   │   │   ├── config.loader
-│   │   │   │   - Environment validator & vault secret loader
-│   │   │   └── env.schema
-│   │   │       - Strongly-typed environment schema binding
+│   │   │   ├── config.loader.[ext]
+│   │   │   └── env.schema.[ext]
 │   │   ├── database/
-│   │   │   - Centralized Database infrastructure & driver abstraction
 │   │   │   ├── .gitkeep
 │   │   │   ├── pool/
-│   │   │   │   - Connection pools, health checks & read/write split endpoints
 │   │   │   ├── factory/
-│   │   │   │   - Client connection factories
 │   │   │   ├── transaction/
-│   │   │   │   - Transaction manager & unit-of-work pipeline engine
 │   │   │   ├── executor/
-│   │   │   │   - Parameterized query execution & statement runner
 │   │   │   ├── middleware/
-│   │   │   │   - Query & mutation execution pipeline engines
 │   │   │   ├── migrations/
-│   │   │   │   - DDL schema migration runner & lock file validator
 │   │   │   ├── tracing/
-│   │   │   │   - OpenTelemetry DB span lifecycle & SQL query sanitizer
 │   │   │   └── adapters/
-│   │   │       - Database vendor driver adapters - Postgres, AlloyDB, DynamoDB, Redis
 │   │   ├── messaging/
-│   │   │   - Centralized Kafka infrastructure & broker abstraction
 │   │   │   ├── .gitkeep
 │   │   │   ├── broker/
-│   │   │   │   - Connection pools, endpoints & health checks
 │   │   │   ├── factory/
-│   │   │   │   - Producer & consumer connection factories
 │   │   │   ├── producers/
-│   │   │   │   - Typed Kafka event producers
 │   │   │   ├── consumers/
-│   │   │   │   - Consumer group management & event dispatchers
 │   │   │   ├── middleware/
-│   │   │   │   - Producer & consumer pipeline engines - ProduceCtx/ConsumeCtx
 │   │   │   ├── topics/
-│   │   │   │   - Topic provisioner & schema registry bindings
 │   │   │   ├── migrations/
-│   │   │   │   - Kafka topic schema migration runner
 │   │   │   ├── tracing/
-│   │   │   │   - W3C trace context propagation & span lifecycle engine
 │   │   │   └── cqrs/
-│   │   │       - Command handlers, projection stores & query selectors
 │   │   ├── clients/
-│   │   │   - Generated client SDKs only - NEVER hand-written
 │   │   │   ├── .gitkeep
-│   │   │   └── {upstream-service}/
-│   │   │       └── v1/
+│   │   │   └── {upstream-service}/v1/
 │   │   └── observability/
-│   │       - Observability, Diagnostics, Continuous Profiling & Failure Diagnosis Runtime Engine
 │   │       ├── .gitkeep
 │   │       ├── tracing/
-│   │       │   - OpenTelemetry SDK setup, W3C trace context, deepest-leaf-error walker & tail-based sampling
 │   │       ├── clocks/
-│   │       │   - Lamport logical clocks, vector clocks & hybrid logical clocks (HLC)
 │   │       ├── profiling/
-│   │       │   - Continuous profiling (Parca/Pyroscope) & flame graph differential engine
 │   │       ├── race_detection/
-│   │       │   - Happens-before vector clock race detection engine
 │   │       ├── deadlock/
-│   │       │   - Wait-for graph & Chandy-Misra-Haas distributed deadlock engine
 │   │       ├── heap_analysis/
-│   │       │   - Heap diffing, core dump inspector & GC pause correlator
 │   │       ├── ebpf/
-│   │       │   - eBPF kernel syscall tracing & latency histogram probes
 │   │       ├── wire_analysis/
-│   │       │   - Packet capture, PCAP decoder & TCP retransmission detector
 │   │       ├── vector_inspection/
-│   │       │   - Version-vector causality inspector & sibling conflict explainer
 │   │       ├── divergence_audit/
-│   │       │   - Anti-entropy read-repair replica divergence auditor
 │   │       ├── idempotency_audit/
-│   │       │   - Idempotency key dedupe store auditor & double-processing failure classifier
 │   │       ├── transition_log/
-│   │       │   - Explicit state machine transition logger & lifecycle history reconstructor
 │   │       ├── snapshots/
-│   │       │   - Chandy-Lamport distributed snapshot coordinator
 │   │       ├── replay/
-│   │       │   - Event-sourced replay-to-point & deterministic incident replayer
 │   │       ├── wal_miner/
-│   │       │   - Database WAL/binlog tailing miner & app log cross-checker
 │   │       ├── shadow_traffic/
-│   │       │   - Shadow traffic mirror proxy, response comparator & differential regression detector
 │   │       ├── circuit_breaker_history/
-│   │       │   - Circuit breaker state transition recorder & root-cause cascade classifier
 │   │       ├── saturation_analysis/
-│   │       │   - Little's Law L = λ × W queueing theory saturation point estimator
 │   │       ├── analytics/
-│   │       │   - BubbleUp-style distributional attribute divergence engine
 │   │       └── topology/
-│   │           - Service dependency graph builder & RED metrics overlay
 │   │
 │   └── shared/
-│       - Package-internal shared repeating utilities & helpers
 │       ├── .gitkeep
 │       ├── utils/
-│       │   - Pure cross-feature utility functions - formatting, date, string helpers
 │       ├── constants/
-│       │   - Shared package constants & system endpoint definitions
 │       ├── errors/
-│       │   - Standardized error classes & response envelope wrappers
 │       └── types/
-│           - Common package-wide utility types
-│
-├── tests/
-│   - 4. Global Package Test Suite
-│   ├── .gitkeep
-│   ├── unit/
-│   │   - Domain unit tests
-│   ├── integration/
-│   │   - Integration tests against containerized infrastructure
-│   ├── contract/
-│   │   - OpenAPI / AsyncAPI / gRPC contract compliance tests
-│   ├── performance/
-│   │   - K6 / Locust load, stress, and spike test scripts
-│   │   ├── .gitkeep
-│   │   ├── scenarios/
-│   │   └── thresholds.json
-│   │       - Latency SLAs - p95 < 100ms, error rate < 0.01%
-│   ├── e2e/
-│   │   - End-to-end user journey API workflows
-│   └── diagnostics/
-│       - Failure Diagnosis, Formal Verification, Boundary Replay & Fault Injection Workloads
-│       ├── .gitkeep
-│       ├── jepsen/
-│       │   - Jepsen-style fault injection workloads & Knossos linearizability verification
-│       ├── tla_plus/
-│       │   - TLA+ formal state machine specifications & TLC model checker runners
-│       ├── byzantine/
-│       │   - Byzantine response corruption proxies & cross-validation test suites
-│       ├── bisection/
-│       │   - Automated git bisect reproducer scripts & regression verification
-│       ├── chaos/
-│       │   - Chaos engineering fault injection experiments - latency, drop, node kill
-│       └── vcr_proxy/
-│           - Boundary network record/replay VCR proxy harness
 │
 ├── scripts/
-│   - Automation & Build Scripts
 │   ├── run.sh
 │   ├── migrate.sh
 │   ├── test.sh
 │   └── generate.sh
-│       - Client SDK & stub code generation script
 │
 ├── Dockerfile
-│   - Multi-stage production container build
 ├── Dockerfile.dev
-│   - Development container with hot-reload & debug symbols
 ├── docker-compose.yml
-│   - Isolated test & runtime infrastructure - Postgres, Redis, Kafka
 ├── .dockerignore
-│   - Container build exclusion patterns
 ├── .env.example
 ├── .package-meta.yaml
 └── .port-registry
 ```
+
+#### 2. The 10-Role Feature Directory Tree
+```
+src/features/{feature-name}/
+├── context.yml
+├── index.[ext]
+├── schema/
+│   └── {feature}.schema.[ext]
+├── queries/
+│   └── {feature}.queries.[ext|sql]
+├── rules/
+│   └── {feature}.rules.[ext]
+├── machines/
+│   └── {feature}.machine.[ext]
+├── workflows/
+│   └── {feature}.workflow.[ext]
+├── repository/
+│   ├── {feature}.repository.port.[ext]
+│   └── {feature}.repository.[ext]
+├── service/
+│   └── {feature}.service.[ext]
+└── types/
+    └── {feature}.types.[ext]
+```
+*(Note: Package and feature structures are automatically generated via `policy-orchestrator scaffold-package` and `policy-orchestrator scaffold-feature`)*
+
 
 ---
 
