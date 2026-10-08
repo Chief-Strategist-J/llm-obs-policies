@@ -406,61 +406,6 @@ src/features/{feature-name}/
 
 
 ---
-
-### Language Tooling & Ecosystem Standards
-
-Every sub-package enforces language-native quality, type safety, linting, and codegen standards:
-
-#### Python
-* **Package Manager**: `pyproject.toml` using `src/` layout per sub-package.
-* **Linter & Formatter**: `ruff --select ALL`, zero warnings allowed.
-* **Type System**: `mypy --strict`, zero type errors.
-* **Security & Auditing**: `bandit` and `safety check` in CI pipeline.
-* **Import Guardrail**: `ruff` imports rule banning cross-package imports.
-* **Test Runner**: `pytest` with `pytest-cov` (minimum 80% coverage threshold).
-* **Client Codegen**: `openapi-python-client` into `src/infra/clients/`.
-* **GraphQL & gRPC**: `ariadne-codegen` from SDL; `grpcio-tools` with `buf generate`.
-* **Tracing & ORM**: `opentelemetry-sdk`, `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-sqlalchemy`.
-
-#### Rust
-* **Package Manager**: Workspace `Cargo.toml`. Workspace members never depend directly on each other.
-* **Linter & Formatter**: `clippy --deny warnings`, zero warnings allowed.
-* **Type System**: Strict safe Rust (`#![deny(unsafe_code)]` unless explicitly justified).
-* **Security & Auditing**: `cargo audit` and `cargo deny`.
-* **Test Runner**: `cargo test` with `cargo tarpaulin` (minimum 80% coverage).
-* **Client Codegen**: `openapi-generator` into `src/infra/clients/`.
-* **GraphQL & gRPC**: `async-graphql` (schema-first SDL); `tonic` with `buf generate`.
-* **Tracing & DB**: `opentelemetry`, `tracing-opentelemetry`, `sqlx` migrations.
-
-#### Go
-* **Package Manager**: Independent `go.mod` per sub-package. `replace` directives strictly forbidden in `main`.
-* **Linter & Formatter**: `golangci-lint` with strict configuration, zero warnings.
-* **Type System & Security**: `go vet`, `staticcheck`, `govulncheck`, and `gosec`.
-* **Import Guardrail**: `depguard` blocking cross-module imports.
-* **Test Runner**: `go test ./...` with minimum 80% coverage.
-* **Client Codegen**: `oapi-codegen` into `src/infra/clients/`.
-* **GraphQL & gRPC**: `gqlgen` (schema-first SDL); `connectrpc` with `buf generate`.
-* **Tracing & DB**: `go.opentelemetry.io/otel`, `golang-migrate` with raw SQL.
-
-#### Node.js / TypeScript
-* **Package Manager**: Independent `package.json` per sub-package. No runtime cross-package imports.
-* **Linter & Formatter**: `eslint --max-warnings 0` and `prettier`.
-* **Type System**: `tsc --strict`, `noImplicitAny`, no `ts-ignore` without documented justification.
-* **Security & Auditing**: `npm audit --audit-level=high`.
-* **Import Guardrail**: `eslint-plugin-import` / `no-restricted-imports` banning cross-package imports.
-* **Test Runner**: `vitest` (or `jest`), minimum 80% coverage.
-* **Client Codegen**: `openapi-typescript-codegen` or `openapi-fetch` into `src/infra/clients/`.
-* **GraphQL & gRPC**: `@graphql-codegen/cli` from SDL; `@connectrpc/connect` with `buf generate`.
-* **Tracing & DB**: `@opentelemetry/sdk-node`, `db-migrate` or raw SQL runner.
-
-#### Java
-* **Package Manager**: Independent Maven module or Gradle subproject per sub-package.
-* **Linter & Formatter**: `checkstyle`, `pmd`, `spotbugs` (zero violations).
-* **Security & Architecture**: `ArchUnit` tests blocking cross-module type references in CI.
-* **Test Runner**: `JUnit 5` with `JaCoCo` (minimum 80% coverage).
-* **Client Codegen**: `openapi-generator-maven-plugin` into `infra/clients/`.
-* **Tracing & DB**: `opentelemetry-java-instrumentation` agent, `flyway` SQL migrations.
-
 ---
 
 ### Centralized Configuration Management Guidelines
@@ -486,31 +431,6 @@ Every sub-package enforces language-native quality, type safety, linting, and co
 
 The coordination between declarative specifications (`database/`), executable infrastructure runtime (`src/infra/database/`), domain query definitions (`src/features/{feature}/queries/`), and domain services (`src/features/{feature}/service/`) operates across four distinct execution phases:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│ 1. DECLARATIVE SPECIFICATIONS (Package Root: database/)                                 │
-│    - DDL SQL Migrations (migrations/) & Checksum Lock File (schema.lock)                │
-│    - RLS Policies (rls/), Indexes (indexes/), Partitioning (partitioning/)              │
-│    - Storage Engine (storage_engine/), Replication Topologies (replication/)            │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-                                           │
-                                           ▼ Read & Executed At Boot / CI-CD
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│ 2. EXECUTABLE INFRASTRUCTURE RUNTIME ENGINE (src/infra/database/)                       │
-│    - Migration Runner (migrations/) validates checksums & applies DDL SQL              │
-│    - Connection Pool (pool/) initializes Primary & Read Replica connection pools        │
-│    - Query Executor (executor/) receives SQL calls & runs through middleware pipeline    │
-│    - OTEL Tracing (tracing/) & Vendor Driver Adapters (adapters/) execute queries        │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-                                           ▲
-                                           │ Dispatched via Injected Repository Ports
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│ 3. FEATURE DOMAIN LAYER (src/features/{feature-name}/)                                  │
-│    - queries/{feature}.queries.sql holds flow-grouped parameterized queries            │
-│    - repository/ connects queries to generic DB ports                                   │
-│    - service/ executes pure business logic with ZERO database driver imports             │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-```
 
 1. **Phase 1 — Schema Migration & Verification (CI/CD & Startup)**:
    * `src/infra/database/migrations/` reads versioned DDL scripts from `database/migrations/` (e.g. `0001_initial_schema.sql`).
