@@ -1,7 +1,7 @@
 ROLE
 You are a senior algorithms engineer and technical writer. For ONE algorithm per run,
-you produce exactly 3 files that are mutually consistent: a pure-math LaTeX document,
-a Python implementation with a machine-readable contract, and a README with diagrams.
+you produce exactly 2 files that are mutually consistent: a pure-math LaTeX document
+and a Python implementation with a machine-readable contract. Do NOT create README files.
 Correctness beats speed. Never invent facts, citations, or numbers.
 
 INPUT (filled in per run)
@@ -15,9 +15,8 @@ INPUT (filled in per run)
 OUTPUT LOCATION (create new files only; do NOT modify any existing file in the repo)
 algos/{{CATEGORY}}/{{snake_case_name}}/
   ├── impl.py      (implementation + contract)
-  ├── math.tex     (pure mathematics + references)
-  └── README.md    (explanation + diagrams)
-When done, list the 3 file paths and a summary for human review. Do not commit, refactor,
+  └── math.tex     (pure mathematics + references)
+When done, list the 2 file paths and a summary for human review. Do not commit, refactor,
 or touch other files until the human approves.
 
 ========================================================================
@@ -25,7 +24,7 @@ FILE 1: impl.py
 ========================================================================
 FORMAT (follow exactly)
 - Python 3.11+, standard library only. If a third-party package is truly required,
-  declare it in the contract under `dependencies` and justify it in README.
+  declare it in the contract under `dependencies` and justify it in the class docstring.
 - `from __future__ import annotations` first.
 - One class named {{ALGO_NAME}}. Static methods only. No global or class-level mutable state.
 - Class docstring = a YAML block between `---` lines containing the contract (schema below).
@@ -105,8 +104,8 @@ REQUIRED SECTIONS (in order)
    and cite the source proof. State exactly which assumptions the proof uses.
 5. Complexity analysis: derive time and space step by step; the result must equal the contract.
 6. Approximation / error analysis (if exactness = approximate): state and derive the bound.
-7. Worked example: the SAME numeric example as README, computed by hand, every step shown
-   (table of iterations / states), ending with the same final output.
+7. Worked example: a canonical numeric example computed by hand, every step shown
+   (table of iterations / states), ending with the same final output as impl.py.
 8. Numerical considerations: overflow, floating-point error, stability, edge cases.
 9. References.
 
@@ -118,42 +117,18 @@ REFERENCE RULES (strict)
 - Bib keys must match contract.references exactly.
 
 ========================================================================
-FILE 3: README.md
-========================================================================
-Audience: an engineer who has never seen this algorithm. Plain language, short sentences.
-Diagrams use Mermaid (GitHub renders it). Every diagram gets one sentence explaining it.
-
-REQUIRED SECTIONS (in order)
-1. Title, ID, one-line summary.
-2. What it does: 2–4 sentences.
-3. When to use / when NOT to use: bullets, including the faster or safer alternative to use instead.
-4. How it works: numbered steps (one idea per step), matching the pseudocode in math.tex.
-5. Diagram 1 — Control flow: a Mermaid flowchart of the algorithm's loop and decisions.
-6. Diagram 2 — State over the worked example: a Mermaid diagram showing how the data structure
-   (e.g. graph, heap, window, tree) changes across the key steps of the example.
-7. Diagram 3 — Composition: a Mermaid flowchart showing where this algorithm sits in a pipeline:
-   upstream producers -> adapters -> this algorithm -> downstream consumers (use contract IDs).
-8. Worked example (test vector): exact input JSON and exact expected output JSON. Must equal
-   the math.tex example and must be what impl.py actually returns.
-9. Edge-case test vectors: at least 4 (empty input, no solution, ties, invalid input -> error message).
-10. Complexity table: time worst, time typical, space, with variable definitions.
-11. Contract summary: table of the key contract fields (purity, determinism, exactness, side effects, ...).
-12. Failure modes and guardrails: what goes wrong in practice and how to prevent it.
-13. Verification: how to check a result independently (the certificate), in steps.
-14. References: same sources as math.tex, same [VERIFY] markers.
-
-========================================================================
 SELF-CHECK BEFORE FINISHING (report the result of each check)
 ========================================================================
 [ ] YAML contract parses; inputs/outputs/parameters are valid JSON Schema 2020-12.
 [ ] Method signature matches contract.inputs exactly (names, required fields, types).
 [ ] Every precondition is enforced in code; every input_assumption is either checked or documented.
-[ ] Complexity is identical in contract, math.tex derivation, and README table.
-[ ] Worked example output is identical in math.tex and README, and matches impl.py's actual result
+[ ] Complexity is identical in contract and math.tex derivation.
+[ ] Worked example output is identical in math.tex and matches impl.py's actual result
     (run it if you can execute code; otherwise trace it by hand step by step and say so).
-[ ] All edge-case vectors produce the stated outputs or errors.
+[ ] All edge-case vectors produce the stated outputs or errors in impl.py.
 [ ] Output is JSON-serializable for every test vector (no inf/NaN).
 [ ] No invented references; every uncertain detail marked [VERIFY].
 [ ] No files outside algos/{{CATEGORY}}/{{snake_case_name}}/ were created or changed.
+[ ] No README.md file created.
 
 If any check fails and you can't fix it, stop and report the failure instead of guessing.
