@@ -91,30 +91,54 @@ KNOWN DEFECTS IN THE ORIGINAL FORMAT EXAMPLE (do not reproduce them)
 ========================================================================
 FILE 2: math.tex
 ========================================================================
-- A standalone, compilable LaTeX article (pdflatex). Packages: amsmath, amssymb, amsthm,
-  algorithm, algpseudocode, hyperref. No other packages unless needed and standard.
-- Pure mathematics: no Python, no implementation details beyond what the math needs.
+A standalone, compilable LaTeX article (pdflatex).
+- Packages: amsmath, amssymb, amsthm, algorithm, algpseudocode, hyperref, booktabs.
+- Pure mathematics: no Python syntax, no hand-wavy claims. Focus on precision of definitions,
+  correctness of mathematical claims, and traceable reasoning.
+
+CORE MATHEMATICAL WRITING PRINCIPLES:
+
+1. THE SIX-PART DEFINITION METHOD (Define Before Using)
+   For every foundational concept and problem definition, explain the underlying meaning
+   before presenting formal notation. Structure definitions to answer:
+   - Meaning: What is the concept in clear, unambiguous terms?
+   - Purpose: What problem does it solve, or why does it exist?
+   - Mechanism: How does it operate and what operational role does it serve?
+   - Formal Specification: The precise equation, rule, or invariant with every symbol defined.
+   - Example: A concrete case demonstrating how it works.
+   - Assumptions & Boundaries: Under what conditions does it hold, when does it fail,
+     and what does it NOT guarantee?
+
+2. SEPARATE ASSUMPTIONS, GUARANTEES, AND LIMITATIONS
+   Every theorem, proposition, or major theoretical claim MUST explicitly separate:
+   - Assumptions: What must be true before the claim applies? (e.g. linear separability with margin γ > 0, bounded norm ||x|| <= R).
+   - Guarantee: What follows mathematically from those assumptions? (e.g. finite mistake bound M <= (R/γ)^2).
+   - Limitations: When does the guarantee stop applying? (e.g. non-separable data does NOT guarantee convergence; state that trajectories depend on dataset and update order, without assuming chaotic oscillation).
+   All claims must be falsifiable and verifiable.
+
+3. VALIDATE EVERY EQUATION AGAINST THE IMPLEMENTATION & WORKED EXAMPLE
+   - Verify every equation against the implementation's exact update rule and decision threshold (e.g. z > 0 => 1 vs z <= 0 => 0).
+   - Recalculate every step of the worked example by hand independently.
+   - Distinguish zero training error / successful classification from strictly positive geometric margins:
+     do NOT claim a positive geometric margin when the margin is zero (e.g. a sample lying exactly on the decision boundary).
+   - Ensure the theorem's assumptions match the implementation's preconditions.
 
 REQUIRED SECTIONS (in order)
-1. Notation: define every symbol before use (sets, functions, variables, indices).
-2. Problem definition: formal input, output, objective or property, as a definition environment.
-3. Algorithm: the mathematical formulation (recurrences, update rules, invariants),
-   then pseudocode in algorithmic form matching impl.py step for step.
-4. Correctness: theorem(s) with proof. If a full proof is long, give a rigorous proof sketch
-   and cite the source proof. State exactly which assumptions the proof uses.
-5. Complexity analysis: derive time and space step by step; the result must equal the contract.
-6. Approximation / error analysis (if exactness = approximate): state and derive the bound.
-7. Worked example: a canonical numeric example computed by hand, every step shown
-   (table of iterations / states), ending with the same final output as impl.py.
-8. Numerical considerations: overflow, floating-point error, stability, edge cases.
-9. References.
-
-REFERENCE RULES (strict)
-- Cite only canonical, real sources (original papers, standard textbooks, official standards
-  with their governing body, e.g. IETF RFC numbers, ISO/IEC numbers, W3C specs).
-- Include DOI or ISBN when you are certain of it. If you are not certain of any detail
-  (year, venue, DOI, page), write \textbf{[VERIFY]} next to it. Never fabricate.
-- Bib keys must match contract.references exactly.
+1. Notation: Define every symbol, domain, and index before use.
+2. Problem Definition & Core Concepts: Formal input, output, objective, and underlying concepts
+   using the six-part definition framework.
+3. Algorithm Specification: Mathematical formulation (recurrences, update rules, invariants),
+   followed by pseudocode in algorithmic form matching impl.py step for step.
+4. Theoretical Guarantees & Correctness: Theorem(s) with explicit Assumptions, Guarantee,
+   Proof (or rigorous proof sketch citing original proof), and Limitations.
+5. Complexity Analysis: Derive time and space step by step; result must equal the contract.
+6. Approximation / Error Analysis (if exactness = approximate): State and derive the bound.
+7. Worked Example: Canonical numeric example computed by hand, every step shown
+   (table of iterations / states), ending with the exact final output matching impl.py.
+8. Numerical Considerations & Edge Cases: Floating-point error, overflow/underflow, zero margin,
+   stability, and boundary behaviors.
+9. References: Canonical citations (original papers, textbooks, RFC/ISO standards) with DOI/ISBN.
+   Write \textbf{[VERIFY]} next to any uncertain detail. Bib keys must match contract.references.
 
 ========================================================================
 SELF-CHECK BEFORE FINISHING (report the result of each check)
@@ -123,8 +147,10 @@ SELF-CHECK BEFORE FINISHING (report the result of each check)
 [ ] Method signature matches contract.inputs exactly (names, required fields, types).
 [ ] Every precondition is enforced in code; every input_assumption is either checked or documented.
 [ ] Complexity is identical in contract and math.tex derivation.
-[ ] Worked example output is identical in math.tex and matches impl.py's actual result
-    (run it if you can execute code; otherwise trace it by hand step by step and say so).
+[ ] Definitions in math.tex explain concepts, mechanisms, and boundaries before equations.
+[ ] Theorems in math.tex explicitly separate Assumptions, Guarantees, and Limitations.
+[ ] Worked example in math.tex is computed by hand, verified step-by-step, and matches impl.py exactly.
+[ ] Zero classification error is strictly distinguished from positive geometric margins.
 [ ] All edge-case vectors produce the stated outputs or errors in impl.py.
 [ ] Output is JSON-serializable for every test vector (no inf/NaN).
 [ ] No invented references; every uncertain detail marked [VERIFY].
