@@ -967,5 +967,3 @@ Same format: definition, how it works step by step, cost, and agent use (role, a
 - **Guardrails:** Transfer only works when the parametrization is implemented exactly. Test it with width sweeps.
 
 ---
-
-Part 2 (#51–100) covers normalization (BatchNorm, LayerNorm, RMSNorm, GroupNorm, weight and spectral normalization, norm placement, QK-norm), regularization (dropout, stochastic depth, data augmentation, Mixup and CutMix, adversarial training, consistency regularization), convolutional networks (fast convolution algorithms, dilated, depthwise separable and transposed convolutions, ResNet, Inception, MobileNet, squeeze-and-excitation, EfficientNet scaling, U-Net, feature pyramids, ConvNeXt, deformable convolution), object detection (region proposals, single-stage detectors, non-maximum suppression, DETR, RoIAlign, anchor-free detectors) and recurrent sequence models (BPTT, LSTM, GRU, seq2seq, attention, teacher forcing, beam search, pointer networks, temporal convolutional networks).
